@@ -53,7 +53,7 @@ class RouteStagePlannerTests(unittest.TestCase):
         route = analyze_points(points, bin_m=250)
         result = plan_stages(route,
             {"body_mass_kg": 80, "typical_speed_kmh": 12},
-            {"days": 2, "max_riding_hours_per_day": 0.5})
+            {"days": 2, "max_riding_hours_per_day": 0.01})
         self.assertEqual(len(result["stages"]), 2)
         self.assertTrue(any(s["load_status"] == "over_user_time_limit" for s in result["stages"]))
 
