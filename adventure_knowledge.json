@@ -2777,7 +2777,11 @@
       "Propagate changes only through dependency_graph",
       "Log every conflict resolution with hierarchy rank used",
       "Surface insufficient_data or user_input_required rather than silent defaults",
-      "Safety critical recommendations require explicit user acknowledgement if overridden"
+      "Safety critical recommendations require explicit user acknowledgement if overridden",
+      "Unknown POI capacity must produce insufficient_data, never satisfied=true.",
+      "The 0.85 coverage_safety multiplier is applied once only.",
+      "stage.estimated_time_hours is the sole canonical duration for downstream models.",
+      "effort_decay must not reduce CHO or fluid targets unless an athlete-specific validated model is introduced."
     ]
   },
   "sources": {
@@ -3646,8 +3650,8 @@
       },
       "inputs": [
         "stage.estimated_time_hours",
+        "stage.fluid_target_l_per_h_adjusted",
         "stage.fluid_target_l_per_h_operational",
-        "ride.estimated_time_hours",
         "user.sweat_rate_l_per_h",
         "user.water_carry_capacity_l",
         "user.planned_water_start_l",
@@ -3664,16 +3668,17 @@
         "plan.hydration.coverage_hours_from_start",
         "plan.hydration.coverage_km_from_start",
         "plan.hydration.resupply_needed_by_km",
-        "plan.hydration.satisfied"
+        "plan.hydration.satisfied",
+        "plan.hydration.status"
       ],
       "algorithm": {
         "steps": [
-          "1. rate = user.sweat_rate_l_per_h if exists else default_intake_l_per_h * heat_multiplier * (1 + elevation_gain_m/1000 * elev_mult)",
-          "2. stage_need_l = rate * ride.estimated_time_hours * (1 + reserve_fraction), floor min_reserve on top of need",
-          "3. start_l = min(user.planned_water_start_l or user.water_carry_capacity_l or recommended, max_reasonable_start_carry_l)",
-          "4. coverage_hours = start_l / rate; coverage_km = coverage_hours * typical_speed (surface-adjusted if available)",
-          "5. If verified water POI exists at km <= coverage_km * 0.9, chain coverage; else resupply_needed_by_km = round(coverage_km * 0.85)",
-          "6. satisfied = (planned start + reachable verified resupply volume) >= stage_need_l within stage"
+          "1. Use stage.fluid_target_l_per_h_adjusted when present, otherwise stage.fluid_target_l_per_h_operational. Never recalculate from ride.estimated_time_hours here; stage_demand owns duration.",
+          "2. stage_need_l = rate * stage.estimated_time_hours * (1 + reserve_fraction). The reserve is a planning margin, not a physiological requirement.",
+          "3. Validate planned start volume against known carry capacity and max_start_l. Do not silently recommend more than the rider can carry; if capacity is unknown, mark the result incomplete.",
+          "4. coverage_hours = start_l / rate; physical coverage_km = coverage_hours * speed. Apply coverage_safety exactly once when calculating the recommended latest resupply point.",
+          "5. A POI counts only when verified/official and its availability is confirmed. A location-only POI without usable volume/capacity does not prove that the whole stage is supplied.",
+          "6. Return satisfied only when the available water volume is demonstrably sufficient. If POI quantities or chain capacity are unknown, return insufficient_data rather than true."
         ]
       },
       "satisfaction": {
@@ -3690,7 +3695,8 @@
       "limitations": [
         "Default L/h is operational, not measured sweat rate. ACSM prioritizes individualization via weigh-in.",
         "Does not model sodium needs in detail.",
-        "POI must be verification_status verified|official to count as resupply."
+        "POI must be verification_status verified|official to count as resupply.",
+        "The current POI contract stores kilometre positions only; it does not contain refill volume or guaranteed availability. Therefore a POI chain cannot prove full-stage sufficiency. Runtime must return insufficient_data until POI capacity is modelled."
       ],
       "kind": "planning",
       "suppression": [
@@ -3713,13 +3719,14 @@
       "formulas": {
         "rate": "coalesce(stage.fluid_target_l_per_h_adjusted, stage.fluid_target_l_per_h_operational)",
         "stage_need_l": "rate * stage.estimated_time_hours * (1 + reserve_fraction)",
-        "recommended_start_l": "clamp(coalesce(user.planned_water_start_l, min(user.water_carry_capacity_l, stage_need_l)), min_start_l, coalesce(user.water_carry_capacity_l, max_start_l_default_cap))",
-        "start_l": "coalesce(user.planned_water_start_l, recommended_start_l)",
+        "start_l": "coalesce(user.planned_water_start_l, user.water_carry_capacity_l)",
         "coverage_hours": "start_l / max(rate, 0.05)",
         "speed": "max(user.typical_speed_kmh, 8)",
-        "coverage_km_from_start": "coverage_hours * speed * coverage_safety",
-        "resupply_needed_by_km": "coverage_km_from_start * coverage_safety",
-        "satisfied": "if(start_l >= stage_need_l, true, if(has_verified_water_before(coverage_km_from_start), chain_ok, false))"
+        "physical_coverage_km": "coverage_hours * speed",
+        "coverage_km_from_start": "physical_coverage_km * coverage_safety",
+        "resupply_needed_by_km": "physical_coverage_km * coverage_safety",
+        "satisfied": "if(start_l >= stage_need_l, true, false)",
+        "status": "if(start_l >= stage_need_l, 'satisfied', if(has_verified_water_before(coverage_km_from_start), 'insufficient_data', 'resupply_required'))"
       },
       "php_helpers": {
         "has_verified_water_before": "any logistics.verified_water_pois_km where km <= coverage_km_from_start * 0.9",
@@ -3757,15 +3764,18 @@
         "prefer_mix_after_gels": 3
       },
       "inputs": [
-        "ride.estimated_time_hours",
+        "stage.estimated_time_hours",
+        "stage.cho_target_g_per_h_adjusted",
+        "stage.cho_target_g_per_h_operational",
         "user.gi_tolerance_high_cho",
         "user.nutrition_preference",
         "user.planned_pack",
+        "user.planned_pack_declared",
         "logistics.verified_food_pois_km",
         "user.gel_cho_g",
         "user.bar_cho_g",
         "user.banana_cho_g",
-        "user.planned_pack_declared"
+        "user.typical_speed_kmh"
       ],
       "outputs": [
         "plan.nutrition.target_cho_g_per_h",
@@ -3778,16 +3788,17 @@
         "plan.nutrition.gel_cho_g_used",
         "plan.nutrition.used_default_gel_cho",
         "plan.nutrition.mode",
-        "plan.nutrition.recommended_start_cho_g"
+        "plan.nutrition.recommended_start_cho_g",
+        "plan.nutrition.status"
       ],
       "algorithm": {
         "steps": [
-          "0. Prefer stage.cho_target_g_per_h_operational from stage_demand if present",
-          "1. gel_cho = user.gel_cho_g if exists else default; used_default flag",
-          "3. IF user.planned_pack_declared == true: treat missing item counts as zero and calculate the declared pack; otherwise mode=buffer, regardless of empty/zero count fields.",
-          "3. IF planned_pack provided: pack_cho_g from counts × per-item CHO; schedule mix",
-          "4. IF planned_pack absent: mode=buffer; recommended_start_cho_g = target * min(start_buffer_hours_default, stage_time);    coverage from buffer; resupply_needed_by_km for remainder; do not require gel counts",
-          "5. satisfied if pack_cho or buffer+verified food POIs cover stage need under policy"
+          "1. Use stage.cho_target_g_per_h_adjusted when present, otherwise stage.cho_target_g_per_h_operational; stage_demand owns duration.",
+          "2. Use declared product carbohydrate values; use item defaults only when product values are unknown and mark used_default flags.",
+          "3. If user.planned_pack_declared=true, calculate the declared pack. Missing item counts are zero only after explicit declaration; otherwise mode=buffer.",
+          "4. In buffer mode, calculate only the initial buffer estimate. Do not claim the full route is fueled without confirmed food quantity/availability at resupply POIs.",
+          "5. Apply the route safety factor once to the physical coverage distance. Return insufficient_data when POI quantity or availability cannot be proven.",
+          "6. satisfied=true only when total available carbohydrate is demonstrably sufficient; otherwise return false or insufficient_data."
         ]
       },
       "satisfaction": {
@@ -3806,7 +3817,9 @@
         "Item CHO defaults are typical product averages; user brands differ.",
         "Does not replace GI feel during the ride.",
         "Total daily energy balance is out of scope of this on-bike pack model.",
-        "A zero/empty pack must never be inferred from unanswered item-count fields; mode is controlled only by user.planned_pack_declared."
+        "A zero/empty pack must never be inferred from unanswered item-count fields; mode is controlled only by user.planned_pack_declared.",
+        "The current POI contract stores kilometre positions only; it does not contain food quantity, CHO content, opening status at arrival or guaranteed availability. A POI chain cannot prove full-stage fueling sufficiency.",
+        "The 95% coverage threshold is an operational tolerance, not a scientific adequacy threshold."
       ],
       "kind": "planning",
       "unknown_pack_policy": {
@@ -3845,9 +3858,10 @@
         "recommended_start_cho_g": "target_g_h * min(buffer_start_hours, stage.estimated_time_hours)",
         "effective_start_cho_g": "if(mode == pack, pack_cho_g, recommended_start_cho_g)",
         "coverage_hours": "effective_start_cho_g / max(target_g_h, 1)",
-        "coverage_km_from_start": "coverage_hours * max(user.typical_speed_kmh, 8) * coverage_safety",
+        "coverage_km_from_start": "coverage_hours * max(user.typical_speed_kmh, 8)",
         "resupply_needed_by_km": "coverage_km_from_start * coverage_safety",
-        "satisfied": "if(effective_start_cho_g >= stage_cho_need_g * 0.95, true, food_poi_chain_ok)"
+        "satisfied": "if(effective_start_cho_g >= stage_cho_need_g * 0.95, true, false)",
+        "status": "if(effective_start_cho_g >= stage_cho_need_g * 0.95, 'satisfied', if(has_verified_food_before(coverage_km_from_start), 'insufficient_data', 'resupply_required'))"
       }
     },
     "gi_risk_vs_cho_rate": {
@@ -4148,7 +4162,9 @@
         "stage.power_factor_end": "climb_adj",
         "stage.power_factor_mean": "(1.0 + stage.power_factor_end) / 2",
         "stage.cho_target_g_per_h_adjusted": "stage.cho_target_g_per_h_operational * (1.0 - cho_track_power * (1.0 - stage.power_factor_mean))",
-        "stage.fluid_target_l_per_h_adjusted": "stage.fluid_target_l_per_h_operational * (0.85 + 0.15 * stage.power_factor_mean)"
+        "stage.fluid_target_l_per_h_adjusted": "stage.fluid_target_l_per_h_operational * (0.85 + 0.15 * stage.power_factor_mean)",
+        "stage_cho_target_g_per_h_adjusted": "stage.cho_target_g_per_h_operational",
+        "stage_fluid_target_l_per_h_adjusted": "stage.fluid_target_l_per_h_operational"
       },
       "demand_profile_algorithm": {
         "description": "Optional piecewise profile for PHP: split stage into N segments by time or climb_segments; apply power_factor(t) per segment; sum CHO and fluid.",
@@ -4166,7 +4182,8 @@
       "limitations": [
         "Operational decay curve, not measured watt drop for this athlete.",
         "CHO still required on long events even if power falls — adjustment is mild (cho_track_power=0.5).",
-        "Positive pacing observation (RAAM) supports not starting at max output."
+        "Positive pacing observation (RAAM) supports not starting at max output.",
+        "Power/pace decay is not a validated proxy for proportional reductions in carbohydrate intake or sweat/fluid needs. Adjusted fueling and fluid targets therefore remain equal to operational targets until athlete-specific evidence is available."
       ]
     },
     "time_margin": {
@@ -5139,13 +5156,24 @@
       "gte",
       "lt",
       "lte",
-      "if"
+      "eq",
+      "if",
+      "coalesce",
+      "lookup",
+      "sum",
+      "has_verified_water_before",
+      "has_verified_food_before"
     ],
     "functions": {
       "min": "min(a,b,...)",
       "max": "max(a,b,...)",
       "clamp": "clamp(x, lo, hi) => min(max(x,lo),hi)",
-      "if": "if(cond, a, b)"
+      "if": "if(cond, a, b)",
+      "coalesce": "coalesce(value, fallback) — fallback only for missing/null, never for numeric zero",
+      "lookup": "lookup(map, key, fallback)",
+      "sum": "sum(array.field)",
+      "has_verified_water_before": "true only when a verified/official water POI exists before km; does not imply volume sufficiency",
+      "has_verified_food_before": "true only when a verified/official food POI exists before km; does not imply CHO quantity sufficiency"
     }
   }
 }
