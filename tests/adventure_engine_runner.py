@@ -48,7 +48,7 @@ class Formula:
         if isinstance(node, ast.Attribute):
             parts=[]; n=node
             while isinstance(n,ast.Attribute): parts.append(n.attr); n=n.value
-            if isinstance(n,ast.Name): parts.append(n.id); path=".".join(reversed(parts))
+            if isinstance(n,ast.Name): parts.append(n.id); path=".".join(reversed(parts)).replace(".__key_", ".")
             else: raise ValueError("Unsupported attribute expression")
             if path in self.local: return self.local[path]
             if path in self.constants: return self.constants[path]
