@@ -2,7 +2,7 @@
   "meta": {
     "id": "ridemore_trip_wizard",
     "version": "0.8.3",
-    "kb_version_target": "0.9.3-research",
+    "kb_version_target": "0.9.4-composition",
     "language_default": "pl",
     "description": "Pytania wizarda zbierające dane wejściowe do silnika RideMore (profil, trasa, woda, żywienie, sprzęt). Odpowiedzi mapowane na data_dictionary / planning models. Tryb short/advanced na starcie; short stosuje defaults_short.",
     "output_context_root": "wizard_answers → nested paths used by rule engine",
