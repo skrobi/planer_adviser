@@ -33,6 +33,7 @@ class ExecutableAdventureEngineTests(unittest.TestCase):
         safety, nutrition, hydration = cards
         self.assertEqual(safety["severity"], "critical")
         self.assertIn("wymaga zmiany", safety["summary"])
+        self.assertTrue(any("Nie jedź dalej" in x for x in safety["details"]))
         self.assertNotIn("3 etapy", " ".join(safety["details"] + safety["actions"]))
         self.assertEqual(nutrition["data_status"], "user_input_required")
         self.assertIn("Nie zadeklarowano", nutrition["summary"])
