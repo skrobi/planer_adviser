@@ -150,7 +150,7 @@
         },
         "event": {
           "has_time_limit": true,
-          "time_limit_hours": 10
+          "time_limit_hours": 8
         },
         "planned_stops_hours": 1,
         "planned_sleep_hours": 0,
