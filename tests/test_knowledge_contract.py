@@ -41,7 +41,7 @@ class KnowledgeContractTests(unittest.TestCase):
         model = KB["models"]["nutrition_pack_plan"]
         self.assertIn("user.planned_pack_declared", model["inputs"])
         self.assertTrue(any("user.planned_pack_declared=true" in step or "user.planned_pack_declared == true" in step for step in model["algorithm"]["steps"]))
-        self.assertIn("planned_pack_declared", WIZARD["defaults_short"]["values"])
+        self.assertIn("user.planned_pack_declared", WIZARD["defaults_short"]["values"])
         self.assertIs(WIZARD["defaults_short"]["values"]["user.planned_pack_declared"], False)
 
     def test_one_coverage_safety_application(self):
