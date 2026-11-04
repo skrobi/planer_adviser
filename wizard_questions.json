@@ -1,7 +1,7 @@
 {
   "meta": {
     "id": "ridemore_trip_wizard",
-    "version": "0.8.2",
+    "version": "0.8.3",
     "kb_version_target": "0.9.2-research",
     "language_default": "pl",
     "description": "Pytania wizarda zbierające dane wejściowe do silnika RideMore (profil, trasa, woda, żywienie, sprzęt). Odpowiedzi mapowane na data_dictionary / planning models. Tryb short/advanced na starcie; short stosuje defaults_short.",
@@ -1358,6 +1358,50 @@
         "path": "trip.horizon",
         "eq": "multi_day"
       }
+    },
+    {
+      "id": "q_planned_stops_hours",
+      "step": "step_event",
+      "path": "planned_stops_hours",
+      "type": "number",
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      },
+      "required": false,
+      "label": {
+        "pl": "Łączny planowany czas postojów (godziny)",
+        "en": "Total planned stop time (hours)"
+      }
+    },
+    {
+      "id": "q_planned_sleep_hours",
+      "step": "step_event",
+      "path": "planned_sleep_hours",
+      "type": "number",
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "and": [
+          {
+            "path": "wizard.mode",
+            "eq": "advanced"
+          },
+          {
+            "path": "trip.horizon",
+            "eq": "multi_day"
+          }
+        ]
+      },
+      "required": false,
+      "label": {
+        "pl": "Łączny planowany czas snu (godziny)",
+        "en": "Total planned sleep time (hours)"
+      }
     }
   ],
   "answer_example_demo_85km": {
@@ -1403,7 +1447,8 @@
     "engine": "Każde path mapuje 1:1 na adventure_knowledge.json → data_dictionary.paths. Wizard UI zapisuje answers[path]=value.",
     "planning": "Po wizardzie uruchom modele stage_demand → effort_decay → hydration_carry_plan / nutrition_pack_plan, a następnie reguły ekspertów.",
     "gel_cho_g": "Wymagane praktycznie przy preference gels/mixed — bez tego default 25 g i used_default_gel_cho=true.",
-    "pack_semantics": "Tryb żywienia kontroluje wyłącznie user.planned_pack_declared. false/brak → user.planned_pack=null i tryb buffer. true → utwórz obiekt planned_pack; nieuzupełnione liczniki potraktuj jako 0."
+    "pack_semantics": "Tryb żywienia kontroluje wyłącznie user.planned_pack_declared. false/brak → user.planned_pack=null i tryb buffer. true → utwórz obiekt planned_pack; nieuzupełnione liczniki potraktuj jako 0.",
+    "time_margin": "Time margin is only a complete estimate when event limit, stage duration, planned stops and planned sleep are known. Missing stop/sleep values must be surfaced as partial."
   },
   "defaults_short": {
     "description": {
@@ -1849,6 +1894,20 @@
         "required": false,
         "unknown_allowed": true,
         "description": "Whether the event has an organizer time limit."
+      },
+      "planned_stops_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Estimated total planned stops during the event; missing means margin estimate is partial."
+      },
+      "planned_sleep_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Total planned sleep during the event; missing means margin estimate is partial."
       }
     }
   }
