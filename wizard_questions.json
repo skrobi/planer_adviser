@@ -1,11 +1,12 @@
 {
   "meta": {
     "id": "ridemore_trip_wizard",
-    "version": "0.8.1",
-    "kb_version_target": "0.6.1-research",
+    "version": "0.8.2",
+    "kb_version_target": "0.9.2-research",
     "language_default": "pl",
     "description": "Pytania wizarda zbierające dane wejściowe do silnika RideMore (profil, trasa, woda, żywienie, sprzęt). Odpowiedzi mapowane na data_dictionary / planning models. Tryb short/advanced na starcie; short stosuje defaults_short.",
-    "output_context_root": "wizard_answers → nested paths used by rule engine"
+    "output_context_root": "wizard_answers → nested paths used by rule engine",
+    "updated": "2026-11-04"
   },
   "steps": [
     {
@@ -542,7 +543,7 @@
     },
     {
       "id": "q_unpaved_fraction",
-      "step": 0.05,
+      "step": "step_route",
       "order": 40,
       "path": "route.unpaved_fraction",
       "type": "number",
@@ -669,7 +670,7 @@
     },
     {
       "id": "q_water_capacity_l",
-      "step": 0.1,
+      "step": "step_hydration",
       "order": 10,
       "path": "user.water_carry_capacity_l",
       "type": "number",
@@ -692,7 +693,7 @@
     },
     {
       "id": "q_planned_water_start_l",
-      "step": 0.1,
+      "step": "step_hydration",
       "order": 20,
       "path": "user.planned_water_start_l",
       "type": "number",
@@ -726,7 +727,7 @@
         "en": "Do you know your sweat rate (L/h)?"
       },
       "min": 0.2,
-      "max": 3.0,
+      "max": 3,
       "help": {
         "pl": "Jeśli nie znasz — silnik użyje domyślnego ~0,4–0,8 L/h (operacyjnie). Lepiej zmierzyć na treningu.",
         "en": "If unknown, engine uses operational default ~0.4–0.8 L/h."
@@ -815,7 +816,7 @@
     },
     {
       "id": "q_gel_cho_g",
-      "step": 1,
+      "step": "step_nutrition",
       "order": 20,
       "path": "user.gel_cho_g",
       "type": "number",
@@ -936,6 +937,25 @@
       }
     },
     {
+      "id": "q_pack_declared",
+      "step": "step_nutrition",
+      "path": "user.planned_pack_declared",
+      "type": "boolean",
+      "modes": [
+        "short",
+        "advanced"
+      ],
+      "required": true,
+      "label": {
+        "pl": "Czy znasz konkretny zapas jedzenia, który zabierzesz?",
+        "en": "Do you know the exact food pack you will carry?"
+      },
+      "description": {
+        "pl": "Nie = silnik dobierze bufor i punkty uzupełnienia. Tak = podasz liczbę produktów; zero jest wtedy świadomą wartością.",
+        "en": "No = engine uses a buffer and resupply points. Yes = enter item counts; zero is then an intentional value."
+      }
+    },
+    {
       "id": "q_pack_gels",
       "step": "step_nutrition",
       "order": 50,
@@ -948,11 +968,18 @@
       },
       "min": 0,
       "max": 40,
-      "default": 0,
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "show_if": {
+        "and": [
+          {
+            "path": "user.planned_pack_declared",
+            "eq": true
+          }
+        ]
+      }
     },
     {
       "id": "q_pack_bananas",
@@ -967,11 +994,18 @@
       },
       "min": 0,
       "max": 20,
-      "default": 0,
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "show_if": {
+        "and": [
+          {
+            "path": "user.planned_pack_declared",
+            "eq": true
+          }
+        ]
+      }
     },
     {
       "id": "q_pack_bars",
@@ -986,11 +1020,18 @@
       },
       "min": 0,
       "max": 30,
-      "default": 0,
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "show_if": {
+        "and": [
+          {
+            "path": "user.planned_pack_declared",
+            "eq": true
+          }
+        ]
+      }
     },
     {
       "id": "q_pack_other_cho",
@@ -1006,13 +1047,16 @@
       },
       "min": 0,
       "max": 2000,
-      "default": 0,
       "modes": [
         "advanced"
       ],
       "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
+        "and": [
+          {
+            "path": "user.planned_pack_declared",
+            "eq": true
+          }
+        ]
       }
     },
     {
@@ -1333,7 +1377,7 @@
       "route.unpaved_fraction": 0.55,
       "route.dominant_surface": "gravel",
       "environment.temperature_c": 22,
-      "user.water_carry_capacity_l": 2.0,
+      "user.water_carry_capacity_l": 2,
       "user.planned_water_start_l": 1.5,
       "user.sweat_rate_l_per_h": null,
       "logistics.verified_water_pois_km": [],
@@ -1356,9 +1400,10 @@
     }
   },
   "mapping_notes": {
-    "engine": "Każde path mapuje 1:1 na data_dictionary. Wizard UI zbiera answers[path]=value.",
-    "planning": "Po wizardsie uruchom compute_hydration_carry_plan i compute_nutrition_pack_plan zanim reguły nutrition z plan.satisfied.",
-    "gel_cho_g": "Wymagane praktycznie przy preference gels/mixed — bez tego default 25 g i used_default_gel_cho=true."
+    "engine": "Każde path mapuje 1:1 na adventure_knowledge.json → data_dictionary.paths. Wizard UI zapisuje answers[path]=value.",
+    "planning": "Po wizardzie uruchom modele stage_demand → effort_decay → hydration_carry_plan / nutrition_pack_plan, a następnie reguły ekspertów.",
+    "gel_cho_g": "Wymagane praktycznie przy preference gels/mixed — bez tego default 25 g i used_default_gel_cho=true.",
+    "pack_semantics": "Tryb żywienia kontroluje wyłącznie user.planned_pack_declared. false/brak → user.planned_pack=null i tryb buffer. true → utwórz obiekt planned_pack; nieuzupełnione liczniki potraktuj jako 0."
   },
   "defaults_short": {
     "description": {
@@ -1379,19 +1424,20 @@
       "logistics.verified_water_pois_km": [],
       "logistics.verified_food_pois_km": [],
       "user.luggage_mass_kg": 10,
-      "user.planned_pack.other_cho_g": 0,
       "event.has_time_limit": false,
       "event.time_limit_hours": null,
       "event.intermediate_controls_timed": false,
       "ride.estimated_time_hours": null,
-      "user.planned_pack": null
+      "user.planned_pack": null,
+      "user.planned_pack_declared": false
     },
     "notes": {
       "user.gel_cho_g": "25 g only if user skipped gel question; mark plan.nutrition.used_default_gel_cho=true",
       "user.sweat_rate_l_per_h": "null → hydration model uses 0.4–0.8 L/h operational default",
       "logistics.verified_*_pois_km": "empty → no credit for resupply until user adds verified POIs",
       "route.unpaved_fraction": "0.3 generic mixed; surface answer still collected in short mode",
-      "nutrition_unknown": "If pack not given, engine nutrition mode=buffer: assume normal CHO rate from stage_demand, start buffer ~4h equivalent, resupply by km — no gel SKU required."
+      "nutrition_unknown": "If pack not given, engine nutrition mode=buffer: assume normal CHO rate from stage_demand, start buffer ~4h equivalent, resupply by km — no gel SKU required.",
+      "user_planned_pack_declared": "false selects buffer mode. Never infer a declared pack from missing or zero item counts."
     }
   },
   "ui_logic": {
@@ -1412,5 +1458,398 @@
       "en"
     ],
     "resolution": "label[locale] ?? label.en ?? label.pl"
+  },
+  "data_dictionary": {
+    "description": "Mirror of adventure_knowledge.json → data_dictionary.paths. The knowledge base is canonical.",
+    "paths": {
+      "user.body_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Body mass for relative calculations when needed"
+      },
+      "user.planned_sleep_h_per_24": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Planned or typical average sleep per 24 h during the event"
+      },
+      "user.typical_distance_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false
+      },
+      "user.typical_speed_kmh": {
+        "type": "number",
+        "unit": "km/h",
+        "required": false
+      },
+      "user.experience_level": {
+        "type": "enum",
+        "values": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "elite"
+        ]
+      },
+      "user.multi_day_experience": {
+        "type": "boolean|enum",
+        "values": [
+          true,
+          false,
+          "limited"
+        ]
+      },
+      "user.bikepacking_experience": {
+        "type": "boolean"
+      },
+      "user.ultra_experience": {
+        "type": "boolean"
+      },
+      "user.self_sufficiency_preference": {
+        "type": "enum",
+        "values": [
+          "supported",
+          "semi",
+          "full"
+        ]
+      },
+      "user.night_riding_tolerance": {
+        "type": "enum",
+        "values": [
+          "none",
+          "limited",
+          "high"
+        ]
+      },
+      "user.luggage_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "unknown_allowed": true
+      },
+      "user.bike_type": {
+        "type": "enum",
+        "values": [
+          "road",
+          "gravel",
+          "mtb",
+          "touring",
+          "hybrid",
+          "other"
+        ]
+      },
+      "user.gi_tolerance_high_cho": {
+        "type": "enum",
+        "values": [
+          "unknown",
+          "low",
+          "moderate",
+          "trained"
+        ],
+        "description": "Prior experience tolerating high CHO rates during exercise"
+      },
+      "ride.estimated_time_hours": {
+        "type": "number",
+        "unit": "h",
+        "description": "Canonical estimated moving + relevant time for nutrition/fatigue rules"
+      },
+      "stage.planned_distance_km": {
+        "type": "number",
+        "unit": "km",
+        "description": "Canonical stage distance path"
+      },
+      "stage.elevation_gain_m": {
+        "type": "number",
+        "unit": "m"
+      },
+      "stage.distance_km": {
+        "type": "number",
+        "unit": "km",
+        "deprecated": true,
+        "alias_of": "stage.planned_distance_km"
+      },
+      "route.distance_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "route.elevation_gain_m": {
+        "type": "number",
+        "unit": "m"
+      },
+      "route.unpaved_fraction": {
+        "type": "number",
+        "range": [
+          0,
+          1
+        ]
+      },
+      "route.surface_profile": {
+        "type": "object|string"
+      },
+      "route.dominant_surface": {
+        "type": "string"
+      },
+      "event.time_limit_hours": {
+        "type": "number",
+        "unit": "h"
+      },
+      "event.intermediate_controls_timed": {
+        "type": "boolean"
+      },
+      "poi.verification_status": {
+        "type": "enum",
+        "values": [
+          "official",
+          "verified",
+          "unverified",
+          "outdated",
+          "user_report"
+        ]
+      },
+      "poi.opening_hours": {
+        "type": "string|object"
+      },
+      "poi.hours_confidence": {
+        "type": "enum",
+        "values": [
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "logistics.supply_gap_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "profile.type": {
+        "type": "string",
+        "description": "Active trip profile id"
+      },
+      "conflict.involves_safety": {
+        "type": "boolean"
+      },
+      "ride.includes_night": {
+        "type": "boolean"
+      },
+      "ride.planned_intensity_early": {
+        "type": "enum",
+        "values": [
+          "easy",
+          "moderate",
+          "hard"
+        ]
+      },
+      "environment.temperature_c": {
+        "type": "number",
+        "unit": "°C"
+      },
+      "user.water_carry_capacity_km": {
+        "type": "number",
+        "unit": "km",
+        "description": "Approximate distance coverable with carried water under current conditions"
+      },
+      "user.sweat_rate_l_per_h": {
+        "type": "number",
+        "unit": "L/h",
+        "unknown_allowed": true,
+        "description": "Measured sweat rate if available"
+      },
+      "user.water_carry_capacity_l": {
+        "type": "number",
+        "unit": "L",
+        "unknown_allowed": true
+      },
+      "user.planned_water_start_l": {
+        "type": "number",
+        "unit": "L",
+        "unknown_allowed": true
+      },
+      "user.nutrition_preference": {
+        "type": "enum",
+        "values": [
+          "gels",
+          "mixed",
+          "real_food",
+          "unknown"
+        ]
+      },
+      "user.planned_pack": {
+        "type": "object",
+        "description": "Counts of items: {gels: n, bananas: n, bars: n, other_cho_g: n}. CHO per gel/bar/banana taken from user.gel_cho_g etc. when set."
+      },
+      "logistics.verified_water_pois_km": {
+        "type": "array",
+        "description": "km marks of verified water"
+      },
+      "logistics.verified_food_pois_km": {
+        "type": "array",
+        "description": "km marks of verified food"
+      },
+      "plan.hydration.satisfied": {
+        "type": "boolean"
+      },
+      "plan.nutrition.satisfied": {
+        "type": "boolean"
+      },
+      "plan.hydration.resupply_needed_by_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "plan.nutrition.resupply_needed_by_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "plan.nutrition.suggested_pack": {
+        "type": "object"
+      },
+      "plan.hydration.recommended_start_l": {
+        "type": "number",
+        "unit": "L"
+      },
+      "user.gel_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Carbohydrate grams per one gel unit the user actually carries. Brand-specific (e.g. 20–45 g). Required for accurate gel counts; if missing, model uses item_defaults.gel_cho_g and lowers completeness."
+      },
+      "user.bar_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "CHO grams per bar unit if user-specified"
+      },
+      "user.banana_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "CHO grams per banana if user-specified; else default"
+      },
+      "route.climb_segments": {
+        "type": "array",
+        "description": "Optional [{start_km, end_km, gain_m, avg_grade_pct}] from GPX analysis"
+      },
+      "stage.estimated_time_hours": {
+        "type": "number",
+        "unit": "h",
+        "description": "Canonical stage time from stage_demand or user override"
+      },
+      "stage.relative_effort_factor": {
+        "type": "number"
+      },
+      "stage.energy_kj_proxy": {
+        "type": "number",
+        "unit": "kJ"
+      },
+      "plan.nutrition.mode": {
+        "type": "enum",
+        "values": [
+          "pack",
+          "buffer"
+        ]
+      },
+      "plan.nutrition.recommended_start_cho_g": {
+        "type": "number",
+        "unit": "g"
+      },
+      "wizard.mode": {
+        "type": "enum",
+        "values": [
+          "short",
+          "advanced"
+        ]
+      },
+      "trip.horizon": {
+        "type": "enum",
+        "values": [
+          "single_day",
+          "multi_day"
+        ]
+      },
+      "trip.days_count": {
+        "type": "integer",
+        "min": 1
+      },
+      "lodging.preference": {
+        "type": "enum",
+        "values": [
+          "wild",
+          "camp",
+          "pension",
+          "mixed",
+          "unknown"
+        ]
+      },
+      "lodging.nights_km": {
+        "type": "array",
+        "description": "Planned overnight locations as km from start"
+      },
+      "plan.nutrition.coverage_km_from_start": {
+        "type": "number",
+        "unit": "km"
+      },
+      "plan.hydration.coverage_km_from_start": {
+        "type": "number",
+        "unit": "km"
+      },
+      "route.gpx_source": {
+        "type": "object",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Upload metadata/reference for GPX. Raw file storage is handled outside the expert input dictionary."
+      },
+      "user.planned_pack_declared": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "True only when the rider explicitly declares a concrete on-bike food pack; false or absent selects buffer mode."
+      },
+      "user.planned_pack.gels": {
+        "type": "integer",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Number of gels; meaningful only when user.planned_pack_declared=true."
+      },
+      "user.planned_pack.bananas": {
+        "type": "integer",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Number of bananas; meaningful only when user.planned_pack_declared=true."
+      },
+      "user.planned_pack.bars": {
+        "type": "integer",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Number of bars; meaningful only when user.planned_pack_declared=true."
+      },
+      "user.planned_pack.other_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Other declared carbohydrate grams; meaningful only when user.planned_pack_declared=true."
+      },
+      "equipment.repair_kit_minimum": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Whether the rider confirms carrying the minimum repair kit."
+      },
+      "event.has_time_limit": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Whether the event has an organizer time limit."
+      }
+    }
   }
 }
