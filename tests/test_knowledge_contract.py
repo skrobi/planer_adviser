@@ -61,6 +61,9 @@ class KnowledgeContractTests(unittest.TestCase):
         self.assertIn("stage.cho_target_g_per_h_operational", f["stage.cho_target_g_per_h_adjusted"])
         self.assertNotIn("cho_track_power", f["stage.cho_target_g_per_h_adjusted"])
         self.assertEqual(f["stage.fluid_target_l_per_h_adjusted"], "stage.fluid_target_l_per_h_operational")
+        self.assertEqual(f["stage_cho_target_g_per_h_adjusted"], "stage.cho_target_g_per_h_operational")
+        self.assertEqual(f["stage_fluid_target_l_per_h_adjusted"], "stage.fluid_target_l_per_h_operational")
+        self.assertNotIn("cho_track_power", f)
 
     def test_missing_body_mass_is_not_imputed(self):
         formula = KB["models"]["stage_demand"]["formulas"]["relative_effort_factor"]
