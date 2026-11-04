@@ -64,6 +64,9 @@ class KnowledgeContractTests(unittest.TestCase):
         self.assertEqual(f["stage_cho_target_g_per_h_adjusted"], "stage.cho_target_g_per_h_operational")
         self.assertEqual(f["stage_fluid_target_l_per_h_adjusted"], "stage.fluid_target_l_per_h_operational")
         self.assertNotIn("cho_track_power", f)
+        self.assertEqual(f["stage_cho_target_g_per_h_adjusted"], "stage.cho_target_g_per_h_operational")
+        self.assertEqual(f["stage_fluid_target_l_per_h_adjusted"], "stage.fluid_target_l_per_h_operational")
+        self.assertNotIn("cho_track_power", f)
 
     def test_missing_body_mass_is_not_imputed(self):
         formula = KB["models"]["stage_demand"]["formulas"]["relative_effort_factor"]
@@ -83,6 +86,27 @@ class KnowledgeContractTests(unittest.TestCase):
         self.assertIn("time_margin", p6["run_models"])
         self.assertNotIn("time_margin_vs_limit", p6["run_models"])
         self.assertIn("race.margin_completeness", KB["models"]["time_margin"]["outputs"])
+
+    def test_zero_sleep_very_long_beginner_attempt_is_critical(self):
+        rule = next(r for r in KB["rules"]["ultra"] if r["id"] == "ultra_sleep_zero_long_inexperienced")
+        self.assertEqual(rule["severity"], "critical")
+        self.assertEqual(rule["priority"], 100)
+        self.assertIn("stage.planned_distance_km", rule["required_inputs"])
+        self.assertIn("user.planned_sleep_h_per_24", rule["required_inputs"])
+        self.assertIn("user.experience_level", rule["required_inputs"])
+        self.assertEqual(rule["action"]["message_key"], "no_sleep_long_inexperienced")
+
+    def test_sleep_heuristic_does_not_claim_safety_threshold(self):
+        rule = next(r for r in KB["rules"]["ultra"] if r["id"] == "ultra_sleep_low")
+        self.assertEqual(rule["threshold_type"], "heuristic")
+        self.assertIn("nie traktuj", rule["explanation"]["pl"].lower())
+        catalog = KB["recommendation_catalog"]["items"]["sleep_low_warning"]["user_facing_template"]["pl"].lower()
+        self.assertIn("nie potwierdza bezpieczeństwa", catalog)
+
+    def test_critical_sleep_recommendation_has_stop_criteria(self):
+        template = KB["recommendation_catalog"]["items"]["no_sleep_long_inexperienced"]["user_facing_template"]["pl"].lower()
+        for term in ("senności", "utrzymaniem toru", "dezorientacji", "nie jedź dalej"):
+            self.assertIn(term, template)
 
 class ReferenceMathTests(unittest.TestCase):
     """Reference calculations for the documented equations; not a substitute for PHP integration tests."""
