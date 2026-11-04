@@ -119,10 +119,28 @@ def analyze_points(points, bin_m=250.0, median_radius=3, smooth_radius=4,
             f=0 if d1==d0 else (mid-d0)/(d1-d0)
             lat=points[j-1]["lat"]+f*(points[j]["lat"]-points[j-1]["lat"])
             lon=points[j-1]["lon"]+f*(points[j]["lon"]-points[j-1]["lon"])
-        grade=(z1-z0)/max(end-start,1)
+        delta=z1-z0
+        # Ignore sub-threshold elevation wiggles at the bin scale.
+        if abs(delta) < elevation_noise_floor_m:
+            z1=z0
+            delta=0.0
+        grade=delta/max(end-start,1)
+        def coord_at(distance):
+            lo2,hi2=0,len(cumulative)-1
+            while lo2<hi2:
+                m2=(lo2+hi2)//2
+                if cumulative[m2]<distance: lo2=m2+1
+                else: hi2=m2
+            q=lo2
+            if q==0: return {"lat":points[0]["lat"],"lon":points[0]["lon"]}
+            da,db=cumulative[q-1],cumulative[q]
+            f2=0 if db==da else (distance-da)/(db-da)
+            return {"lat":points[q-1]["lat"]+f2*(points[q]["lat"]-points[q-1]["lat"]),
+                    "lon":points[q-1]["lon"]+f2*(points[q]["lon"]-points[q-1]["lon"])}
         bins.append({"start_m":start,"end_m":end,"distance_m":end-start,
-                     "ele_start_m":z0,"ele_end_m":z1,"gain_m":max(0,z1-z0),
-                     "loss_m":max(0,z0-z1),"grade":grade,"lat":lat,"lon":lon})
+                     "ele_start_m":z0,"ele_end_m":z1,"gain_m":max(0,delta),
+                     "loss_m":max(0,-delta),"grade":grade,"lat":lat,"lon":lon,
+                     "start_coordinate":coord_at(start),"end_coordinate":coord_at(end)})
         start=end
 
     raw_gain=sum(max(0, b["ele_m"]-a["ele_m"]) for a,b in zip(points,points[1:])
@@ -286,10 +304,8 @@ def plan_stages(route, rider, constraints, physics=None):
             "estimated_moving_hours":hours,"estimated_average_speed_kmh":avg_speed,
             "mechanical_work_kj":mechanical,"estimated_metabolic_energy_kj":metabolic,
             "estimated_metabolic_energy_kcal":metabolic/4.184,
-            "start_coordinate":route["start"] if start==0 else {
-                "lat":bins[start]["lat"],"lon":bins[start]["lon"]},
-            "end_coordinate":route["finish"] if end==n else {
-                "lat":bins[end-1]["lat"],"lon":bins[end-1]["lon"]},
+            "start_coordinate":bins[start]["start_coordinate"],
+            "end_coordinate":bins[end-1]["end_coordinate"],
             "time_limit_hours":max_hours,
             "time_limit_overrun_hours":max(0,hours-float(max_hours)) if max_hours is not None else None,
             "load_status":"over_user_time_limit" if max_hours is not None and hours>float(max_hours) else "within_user_time_limit",
