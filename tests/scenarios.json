@@ -1,0 +1,456 @@
+{
+  "schema_version": "1.0",
+  "description": "Synthetic regression scenarios. Expected outcomes are behavioral assertions, not claims of clinical certainty.",
+  "scenarios": [
+    {
+      "id": "S01_beginner_300km_no_sleep",
+      "input": {
+        "profile": {
+          "type": "ultra"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 300,
+          "elevation_gain_m": 2000
+        },
+        "route": {
+          "dominant_surface": "paved",
+          "unpaved_fraction": 0
+        },
+        "user": {
+          "experience_level": "beginner",
+          "typical_speed_kmh": 18,
+          "typical_distance_km": 40,
+          "planned_sleep_h_per_24": 0,
+          "multi_day_experience": false,
+          "bikepacking_experience": false,
+          "planned_pack_declared": false,
+          "water_carry_capacity_l": 1,
+          "planned_water_start_l": 1,
+          "self_sufficiency_preference": "semi",
+          "luggage_mass_kg": 8,
+          "body_mass_kg": 75
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "ultra_sleep_zero_long_inexperienced",
+          "ultra_long_effort_flag",
+          "nut_cho_buffer_unknown_pack",
+          "nut_hydration_carry_insufficient"
+        ],
+        "must_not_fire": [],
+        "severity_at_least": {
+          "ultra_sleep_zero_long_inexperienced": "critical"
+        }
+      },
+      "rationale": "Very long single-stage ride, beginner and zero planned sleep must produce a critical safety flag. Water and food plans must expose resupply needs."
+    },
+    {
+      "id": "S02_multi_day_3x100km",
+      "input": {
+        "profile": {
+          "type": "bikepacking"
+        },
+        "trip": {
+          "horizon": "multi_day",
+          "days_count": 3
+        },
+        "stage": {
+          "planned_distance_km": 100,
+          "elevation_gain_m": 700
+        },
+        "route": {
+          "dominant_surface": "gravel",
+          "unpaved_fraction": 0.45
+        },
+        "user": {
+          "experience_level": "intermediate",
+          "typical_speed_kmh": 19,
+          "typical_distance_km": 65,
+          "multi_day_experience": "limited",
+          "bikepacking_experience": false,
+          "planned_sleep_h_per_24": 7,
+          "luggage_mass_kg": 9,
+          "body_mass_kg": 78,
+          "water_carry_capacity_l": 2,
+          "planned_water_start_l": 2,
+          "planned_pack_declared": false,
+          "self_sufficiency_preference": "full"
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "adv_first_bikepacking_uncertainty",
+          "eq_repair_kit_minimum_remote",
+          "log_stage_length_vs_experience"
+        ],
+        "must_not_fire": [
+          "ultra_sleep_zero_long_inexperienced"
+        ]
+      },
+      "rationale": "Three-day plan with limited multi-day experience should surface conservative-stage and self-sufficiency guidance."
+    },
+    {
+      "id": "S03_beginner_80km_vs_typical40",
+      "input": {
+        "profile": {
+          "type": "recreational"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 80,
+          "elevation_gain_m": 300
+        },
+        "route": {
+          "dominant_surface": "paved",
+          "unpaved_fraction": 0
+        },
+        "user": {
+          "experience_level": "beginner",
+          "typical_speed_kmh": 18,
+          "typical_distance_km": 40,
+          "luggage_mass_kg": 2,
+          "body_mass_kg": 75,
+          "planned_pack_declared": false,
+          "water_carry_capacity_l": 2,
+          "planned_water_start_l": 2
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "log_stage_length_vs_experience"
+        ],
+        "must_not_fire": [
+          "ultra_sleep_zero_long_inexperienced"
+        ]
+      },
+      "rationale": "Stage is twice the rider's stated typical distance; the engine should flag the mismatch without declaring it impossible."
+    },
+    {
+      "id": "S04_160km_time_limit",
+      "input": {
+        "profile": {
+          "type": "brevet"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 160,
+          "elevation_gain_m": 900
+        },
+        "route": {
+          "dominant_surface": "paved",
+          "unpaved_fraction": 0
+        },
+        "event": {
+          "has_time_limit": true,
+          "time_limit_hours": 10
+        },
+        "planned_stops_hours": 1,
+        "planned_sleep_hours": 0,
+        "user": {
+          "experience_level": "advanced",
+          "typical_speed_kmh": 25,
+          "typical_distance_km": 100,
+          "luggage_mass_kg": 2,
+          "body_mass_kg": 75,
+          "planned_pack_declared": false,
+          "water_carry_capacity_l": 2,
+          "planned_water_start_l": 2
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "rs_margin_tight"
+        ],
+        "must_not_fire": [
+          "rs_missing_limit"
+        ]
+      },
+      "rationale": "Tight time margin should be surfaced as a warning; it must not imply guaranteed completion."
+    },
+    {
+      "id": "S05_hot_32C_high_sweat_small_capacity",
+      "input": {
+        "profile": {
+          "type": "road_expedition"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 120,
+          "elevation_gain_m": 500
+        },
+        "route": {
+          "dominant_surface": "paved",
+          "unpaved_fraction": 0
+        },
+        "environment": {
+          "temperature_c": 32
+        },
+        "user": {
+          "experience_level": "intermediate",
+          "typical_speed_kmh": 22,
+          "typical_distance_km": 70,
+          "sweat_rate_l_per_h": 1.2,
+          "water_carry_capacity_l": 1,
+          "planned_water_start_l": 1,
+          "luggage_mass_kg": 2,
+          "body_mass_kg": 75,
+          "planned_pack_declared": false
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "nut_hydration_carry_insufficient"
+        ],
+        "must_not_fire": []
+      },
+      "assertions": [
+        {
+          "path": "stage.fluid_target_l_per_h_operational",
+          "op": "eq",
+          "value": 1.2
+        },
+        {
+          "path": "plan.hydration.satisfied",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "rationale": "Measured sweat rate takes precedence over the operational temperature estimate; small start volume must trigger a water plan."
+    },
+    {
+      "id": "S06_cool_low_sweat_45km",
+      "input": {
+        "profile": {
+          "type": "recreational"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 45,
+          "elevation_gain_m": 100
+        },
+        "route": {
+          "dominant_surface": "paved",
+          "unpaved_fraction": 0
+        },
+        "environment": {
+          "temperature_c": 10
+        },
+        "user": {
+          "experience_level": "intermediate",
+          "typical_speed_kmh": 20,
+          "typical_distance_km": 50,
+          "sweat_rate_l_per_h": 0.35,
+          "water_carry_capacity_l": 1,
+          "planned_water_start_l": 1,
+          "luggage_mass_kg": 1,
+          "body_mass_kg": 75,
+          "planned_pack_declared": false
+        }
+      },
+      "expected": {
+        "must_fire": [],
+        "must_not_fire": [
+          "ultra_sleep_zero_long_inexperienced"
+        ]
+      },
+      "assertions": [
+        {
+          "path": "stage.fluid_target_l_per_h_operational",
+          "op": "eq",
+          "value": 0.35
+        }
+      ],
+      "rationale": "Measured low sweat rate should not be inflated by cool-weather default multipliers."
+    },
+    {
+      "id": "S07_declared_120g_CHO_pack",
+      "input": {
+        "profile": {
+          "type": "ultra"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 180,
+          "elevation_gain_m": 1000
+        },
+        "route": {
+          "dominant_surface": "paved",
+          "unpaved_fraction": 0
+        },
+        "user": {
+          "experience_level": "advanced",
+          "typical_speed_kmh": 24,
+          "typical_distance_km": 120,
+          "luggage_mass_kg": 3,
+          "body_mass_kg": 75,
+          "planned_pack_declared": true,
+          "planned_pack": {
+            "gels": 0,
+            "bananas": 0,
+            "bars": 0,
+            "other_cho_g": 120
+          },
+          "gel_cho_g": 30,
+          "planned_sleep_h_per_24": 5.5,
+          "water_carry_capacity_l": 2,
+          "planned_water_start_l": 2
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "nut_pack_insufficient"
+        ],
+        "must_not_fire": [
+          "nut_cho_buffer_unknown_pack"
+        ]
+      },
+      "assertions": [
+        {
+          "path": "plan.nutrition.mode",
+          "op": "eq",
+          "value": "pack"
+        },
+        {
+          "path": "plan.nutrition.pack_cho_g",
+          "op": "eq",
+          "value": 120
+        }
+      ],
+      "rationale": "Explicitly declared 120 g pack is a real zero-count-aware pack declaration and is insufficient for a long stage."
+    },
+    {
+      "id": "S08_food_POI_hours_unknown",
+      "input": {
+        "profile": {
+          "type": "bikepacking"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 140,
+          "elevation_gain_m": 600
+        },
+        "route": {
+          "dominant_surface": "gravel",
+          "unpaved_fraction": 0.35
+        },
+        "poi": {
+          "verification_status": "verified",
+          "hours_confidence": "low"
+        },
+        "user": {
+          "experience_level": "intermediate",
+          "typical_speed_kmh": 20,
+          "typical_distance_km": 80,
+          "luggage_mass_kg": 5,
+          "body_mass_kg": 75,
+          "planned_pack_declared": false,
+          "water_carry_capacity_l": 2,
+          "planned_water_start_l": 2
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "log_poi_opening_hours_unknown"
+        ],
+        "must_not_fire": [
+          "log_unverified_poi_not_assumed"
+        ]
+      },
+      "rationale": "A verified location with low confidence in opening hours cannot be treated as dependable food resupply."
+    },
+    {
+      "id": "S09_missing_critical_inputs",
+      "input": {
+        "profile": {
+          "type": "exploratory"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 110,
+          "elevation_gain_m": 500
+        },
+        "route": {
+          "dominant_surface": "mixed",
+          "unpaved_fraction": 0.2
+        },
+        "user": {
+          "experience_level": "intermediate",
+          "typical_speed_kmh": 20,
+          "typical_distance_km": 60,
+          "planned_pack_declared": false
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "nut_missing_body_mass",
+          "eq_luggage_mass_unknown",
+          "adv_exit_options"
+        ],
+        "must_not_fire": []
+      },
+      "rationale": "Missing body and luggage mass must remain missing; no fabricated mass should appear in derived outputs."
+    },
+    {
+      "id": "S10_experienced_night_no_sleep_200km",
+      "input": {
+        "profile": {
+          "type": "brevet"
+        },
+        "trip": {
+          "horizon": "single_day"
+        },
+        "stage": {
+          "planned_distance_km": 200,
+          "elevation_gain_m": 1200
+        },
+        "route": {
+          "dominant_surface": "paved",
+          "unpaved_fraction": 0
+        },
+        "ride": {
+          "includes_night": true
+        },
+        "user": {
+          "experience_level": "advanced",
+          "typical_speed_kmh": 24,
+          "typical_distance_km": 120,
+          "night_riding_tolerance": "high",
+          "planned_sleep_h_per_24": 0,
+          "luggage_mass_kg": 3,
+          "body_mass_kg": 75,
+          "planned_pack_declared": false,
+          "water_carry_capacity_l": 2,
+          "planned_water_start_l": 2
+        }
+      },
+      "expected": {
+        "must_fire": [
+          "eq_night_riding_lights",
+          "ultra_sleep_low"
+        ],
+        "must_not_fire": [
+          "ultra_sleep_zero_long_inexperienced"
+        ]
+      },
+      "rationale": "Experience does not eliminate night-riding equipment needs or the low-sleep warning; beginner-specific critical trigger should not fire."
+    }
+  ]
+}
