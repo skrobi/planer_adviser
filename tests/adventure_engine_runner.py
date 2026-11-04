@@ -73,10 +73,15 @@ class Formula:
             left=self.resolve(node.left)
             for op,right_node in zip(node.ops,node.comparators):
                 right=self.resolve(right_node)
-                if left is MISSING or right is MISSING: return False
+                # Missing and explicit null are unknown, never coerced to zero.
+                if left is MISSING or right is MISSING or left is None or right is None: return False
                 fn={ast.Eq:operator.eq,ast.NotEq:operator.ne,ast.Gt:operator.gt,ast.GtE:operator.ge,ast.Lt:operator.lt,ast.LtE:operator.le}.get(type(op))
                 if not fn: raise ValueError("Unsupported comparison")
-                if not fn(left,right): return False
+                try:
+                    matched = fn(left,right)
+                except (TypeError, ValueError):
+                    return False
+                if not matched: return False
                 left=right
             return True
         if isinstance(node, ast.Call):
@@ -143,7 +148,10 @@ def run_models(kb, ctx):
                 value=evaluator.eval(expr)
                 if value is not MISSING:
                     local[name]=value
-                    if "." in name: set_path(ctx,name,value)
+                    # Formula aliases are mapped only through explicit JSON output contracts.
+                    output_path = name if "." in name else model.get("formula_outputs", {}).get(name)
+                    if output_path:
+                        set_path(ctx, output_path, value)
                     del pending[name]; progressed=True
             if not pending or not progressed: break
         trace.append({"model":mid,"computed":sorted(local.keys()),"unresolved":sorted(pending.keys())})
