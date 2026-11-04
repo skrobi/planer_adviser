@@ -3561,6 +3561,34 @@
         "required": false,
         "unknown_allowed": true,
         "description": "Total planned sleep during the event; missing means margin estimate is partial."
+      },
+      "plan.hydration.status": {
+        "type": "enum",
+        "values": [
+          "satisfied",
+          "resupply_required",
+          "insufficient_data"
+        ]
+      },
+      "plan.nutrition.status": {
+        "type": "enum",
+        "values": [
+          "satisfied",
+          "resupply_required",
+          "insufficient_data"
+        ]
+      },
+      "stage.luggage_effort_component": {
+        "type": "number",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "stage.input_completeness": {
+        "type": "enum",
+        "values": [
+          "complete_for_load",
+          "partial_load_inputs"
+        ]
       }
     },
     "naming_conventions": {
