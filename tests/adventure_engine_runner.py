@@ -109,7 +109,8 @@ class Formula:
         vals=get_path(self.ctx,path)
         return isinstance(vals,list) and any(isinstance(x,(int,float)) and x <= km*.9 for x in vals)
     def eval(self, expr):
-        expr = __import__("re").sub(r"\\bif\\s*\\(", "if_(", expr)\n        try: tree=ast.parse(expr,mode="eval")
+        expr = __import__("re").sub(r"\bif\s*\(", "if_(", expr)
+        try: tree=ast.parse(expr,mode="eval")
         except SyntaxError as e: raise ValueError(f"Invalid formula {expr!r}: {e}")
         return self.resolve(tree.body)
 
