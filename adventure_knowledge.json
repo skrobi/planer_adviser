@@ -2,7 +2,7 @@
   "meta": {
     "system_name": "RideMore Expert System Knowledge Base",
     "schema_version": "1.0.0-alpha",
-    "knowledge_version": "0.9.1-research",
+    "knowledge_version": "0.9.2-research",
     "created": "2026-11-04",
     "updated": "2026-11-04",
     "language": "pl-en",
@@ -89,6 +89,11 @@
         "version": "0.9.1-research",
         "date": "2026-11-04",
         "description": "Explicit formulas in models; effort_decay (power/CHO/fluid over time); time_margin model; thin ultra/race_strategy triggers; PHP formula_dsl; logistics elevation uses effort_factor."
+      },
+      {
+        "version": "0.9.2-research",
+        "date": "2026-11-04",
+        "description": "Align wizard input paths with data_dictionary; add explicit planned-pack declaration semantics and input provenance; no numeric model changes."
       }
     ],
     "notes": "Quality and source traceability prioritized over volume. Arbitrary thresholds avoided. Missing data handled via insufficient_data / user_input_required. Safety hierarchy enforced in conflict model (to be expanded)."
@@ -890,7 +895,7 @@
         "severity": "info",
         "evidence": "operational",
         "source_ids": [],
-        "confidence": 1.0,
+        "confidence": 1,
         "limitations": "",
         "explanation": {
           "en": "Many guidelines express some targets relative to body mass; absolute CHO rates during exercise are often absolute but energy balance and rehydration volumes benefit from mass.",
@@ -1236,7 +1241,7 @@
         "severity": "warning",
         "evidence": "operational",
         "source_ids": [],
-        "confidence": 1.0,
+        "confidence": 1,
         "limitations": "",
         "explanation": {
           "en": "Operational principle of the system: map presence ≠ confirmed availability. Critical for water and food on remote sections.",
@@ -1476,7 +1481,7 @@
         "severity": "critical",
         "evidence": "expert_practice",
         "source_ids": [],
-        "confidence": 1.0,
+        "confidence": 1,
         "limitations": "",
         "explanation": {
           "en": "Core hierarchy: human safety is the highest priority.",
@@ -1820,7 +1825,7 @@
         "severity": "info",
         "evidence": "operational",
         "source_ids": [],
-        "confidence": 1.0,
+        "confidence": 1,
         "limitations": "",
         "explanation": {
           "en": "Practical tests show measurable but moderate time cost per extra kg on hilly routes; without the value the system cannot adjust estimates.",
@@ -2480,7 +2485,7 @@
       "trigger_conditions": {
         "race.time_margin_hours": {
           "op": "lt",
-          "value": 1.0
+          "value": 1
         }
       },
       "severity": "high",
@@ -3485,6 +3490,59 @@
       "plan.hydration.coverage_km_from_start": {
         "type": "number",
         "unit": "km"
+      },
+      "route.gpx_source": {
+        "type": "object",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Upload metadata/reference for GPX. Raw file storage is handled outside the expert input dictionary."
+      },
+      "user.planned_pack_declared": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "True only when the rider explicitly declares a concrete on-bike food pack; false or absent selects buffer mode."
+      },
+      "user.planned_pack.gels": {
+        "type": "integer",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Number of gels; meaningful only when user.planned_pack_declared=true."
+      },
+      "user.planned_pack.bananas": {
+        "type": "integer",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Number of bananas; meaningful only when user.planned_pack_declared=true."
+      },
+      "user.planned_pack.bars": {
+        "type": "integer",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Number of bars; meaningful only when user.planned_pack_declared=true."
+      },
+      "user.planned_pack.other_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "min": 0,
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Other declared carbohydrate grams; meaningful only when user.planned_pack_declared=true."
+      },
+      "equipment.repair_kit_minimum": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Whether the rider confirms carrying the minimum repair kit."
+      },
+      "event.has_time_limit": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Whether the event has an organizer time limit."
       }
     },
     "naming_conventions": {
@@ -3576,7 +3634,7 @@
         },
         "heat_multiplier": {
           "cool_lt_15c": 0.9,
-          "mild_15_22c": 1.0,
+          "mild_15_22c": 1,
           "warm_22_28c": 1.2,
           "hot_gt_28c": 1.4,
           "note": "Operational multipliers only; prefer measured sweat rate."
@@ -3584,7 +3642,7 @@
         "elevation_effort_multiplier_per_1000m": 0.08,
         "reserve_fraction": 0.15,
         "min_reserve_l": 0.3,
-        "max_reasonable_start_carry_l": 4.0
+        "max_reasonable_start_carry_l": 4
       },
       "inputs": [
         "stage.estimated_time_hours",
@@ -3649,7 +3707,7 @@
       "constants": {
         "reserve_fraction": 0.15,
         "min_start_l": 0.5,
-        "max_start_l_default_cap": 4.0,
+        "max_start_l_default_cap": 4,
         "coverage_safety": 0.85
       },
       "formulas": {
@@ -3706,7 +3764,8 @@
         "logistics.verified_food_pois_km",
         "user.gel_cho_g",
         "user.bar_cho_g",
-        "user.banana_cho_g"
+        "user.banana_cho_g",
+        "user.planned_pack_declared"
       ],
       "outputs": [
         "plan.nutrition.target_cho_g_per_h",
@@ -3725,7 +3784,7 @@
         "steps": [
           "0. Prefer stage.cho_target_g_per_h_operational from stage_demand if present",
           "1. gel_cho = user.gel_cho_g if exists else default; used_default flag",
-          "2. stage_cho_need_g = target_g_per_h * stage.estimated_time_hours",
+          "3. IF user.planned_pack_declared == true: treat missing item counts as zero and calculate the declared pack; otherwise mode=buffer, regardless of empty/zero count fields.",
           "3. IF planned_pack provided: pack_cho_g from counts × per-item CHO; schedule mix",
           "4. IF planned_pack absent: mode=buffer; recommended_start_cho_g = target * min(start_buffer_hours_default, stage_time);    coverage from buffer; resupply_needed_by_km for remainder; do not require gel counts",
           "5. satisfied if pack_cho or buffer+verified food POIs cover stage need under policy"
@@ -3746,14 +3805,15 @@
       "limitations": [
         "Item CHO defaults are typical product averages; user brands differ.",
         "Does not replace GI feel during the ride.",
-        "Total daily energy balance is out of scope of this on-bike pack model."
+        "Total daily energy balance is out of scope of this on-bike pack model.",
+        "A zero/empty pack must never be inferred from unanswered item-count fields; mode is controlled only by user.planned_pack_declared."
       ],
       "kind": "planning",
       "unknown_pack_policy": {
         "assume_normal_fueling": true,
         "use_stage_cho_target_from": "stage.cho_target_g_per_h_operational",
         "start_buffer_hours_default": 4,
-        "note": "When planned_pack missing: recommended_start_cho_g = rate * min(4h, stage_time) as start buffer; resupply_needed_by_km from remaining need. Do not invent gel SKUs."
+        "note": "A concrete pack is used only when user.planned_pack_declared=true. Missing declaration or false selects buffer mode; zero counts are valid only after explicit declaration."
       },
       "suppression": [
         {
@@ -3780,8 +3840,8 @@
         "banana_cho": "coalesce(user.banana_cho_g, default_banana_cho_g)",
         "target_g_h": "coalesce(stage.cho_target_g_per_h_adjusted, stage.cho_target_g_per_h_operational)",
         "stage_cho_need_g": "target_g_h * stage.estimated_time_hours",
-        "pack_cho_g": "coalesce(user.planned_pack.gels,0)*gel_cho + coalesce(user.planned_pack.bananas,0)*banana_cho + coalesce(user.planned_pack.bars,0)*bar_cho + coalesce(user.planned_pack.other_cho_g,0)",
-        "mode": "if(pack_declared, 'pack', 'buffer')",
+        "pack_cho_g": "if(mode == 'pack', coalesce(user.planned_pack.gels,0)*gel_cho + coalesce(user.planned_pack.bananas,0)*banana_cho + coalesce(user.planned_pack.bars,0)*bar_cho + coalesce(user.planned_pack.other_cho_g,0), null)",
+        "mode": "if(user.planned_pack_declared == true, 'pack', 'buffer')",
         "recommended_start_cho_g": "target_g_h * min(buffer_start_hours, stage.estimated_time_hours)",
         "effective_start_cho_g": "if(mode == pack, pack_cho_g, recommended_start_cho_g)",
         "coverage_hours": "effective_start_cho_g / max(target_g_h, 1)",
@@ -3847,7 +3907,7 @@
           "trained": 0.45,
           "moderate": 0.7,
           "low": 1.15,
-          "unknown": 1.0
+          "unknown": 1
         },
         "duration_factor": {
           "description": "Slight upward adjustment for very long continuous efforts where cumulative GI load rises",
@@ -3921,7 +3981,7 @@
           "trained": 0.45,
           "moderate": 0.7,
           "low": 1.15,
-          "unknown": 1.0
+          "unknown": 1
         },
         "duration_boost_after_h": 5,
         "duration_mult": 1.1,
@@ -3984,7 +4044,7 @@
       "assumptions": {
         "steep_grade_pct_operational": 7,
         "surface_speed_factors": {
-          "paved": 1.0,
+          "paved": 1,
           "gravel": 0.88,
           "mixed": 0.92,
           "dirt": 0.85,
@@ -4005,7 +4065,7 @@
       ],
       "constants": {
         "surface_speed_factor": {
-          "paved": 1.0,
+          "paved": 1,
           "mixed": 0.92,
           "gravel": 0.88,
           "dirt": 0.85,
@@ -4013,7 +4073,7 @@
         },
         "elev_time_h_per_1000m": 0.15,
         "luggage_time_factor_per_kg": 0.008,
-        "steep_grade_pct": 7.0,
+        "steep_grade_pct": 7,
         "steep_effort_k": 0.05,
         "gain_per_km_effort_k": 0.04,
         "unpaved_effort_k": 0.12,
@@ -4027,7 +4087,7 @@
         "fluid_l_per_h_base": 0.6,
         "heat_mult": {
           "lt_15": 0.9,
-          "15_22": 1.0,
+          "15_22": 1,
           "22_28": 1.2,
           "gt_28": 1.4
         },
@@ -4061,7 +4121,7 @@
         "en": "Operational factor: relative power declines with duration/climb load; adjusts demand pace. Not a lab FTP model."
       },
       "constants": {
-        "decay_start_h": 3.0,
+        "decay_start_h": 3,
         "decay_k_per_h": 0.04,
         "decay_floor": 0.72,
         "climb_decay_extra_k": 0.02,
@@ -4127,8 +4187,8 @@
         "race.margin_status"
       ],
       "constants": {
-        "tight_h": 1.0,
-        "ok_h": 3.0
+        "tight_h": 1,
+        "ok_h": 3
       },
       "formulas": {
         "used": "stage.estimated_time_hours + coalesce(planned_stops_hours,0) + coalesce(planned_sleep_hours,0)",
