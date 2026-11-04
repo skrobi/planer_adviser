@@ -10,7 +10,7 @@ Centralna baza wiedzy i silnik rekomendacji dla planowania wypraw rowerowych, bi
 - Aktualna gałąź robocza: `fix/data-contracts-0.9.2`.
 - PR: [#1 – Audit and test RideMore adventure knowledge pipeline](https://github.com/skrobi/planer_adviser/pull/1) (otwarty, draft; nie scalony).
 - Referencyjny interpreter: Python w `tests/adventure_engine_runner.py`.
-- Ostatni workflow dla aktualnego HEAD: [GitHub Actions – success](https://github.com/skrobi/planer_adviser/actions/runs/41843541954).
+- Testy GitHub Actions dla aktualnego modelu GPX: [run 41847569952 – success](https://github.com/skrobi/planer_adviser/actions/runs/41847569952).
 - **Ważne:** repozytorium nie zawiera jeszcze produkcyjnego silnika PHP ani integracji z runtime Ridemore. Obecne testy sprawdzają kontrakt wiedzy i interpreter referencyjny, a nie działanie produkcyjnej aplikacji.
 
 ## 1. Co zostało zrobione
@@ -112,15 +112,19 @@ Poniższe punkty są planem prac. Nie należy traktować ich jako już zaimpleme
 
 ### Etap A – Route Analyzer (analiza GPX)
 
-- Wczytywanie GPX i walidacja śladu (punkty, kolejność, przerwy, duplikaty, pętle).
-- Obliczanie dystansu, profilu wysokości, sumy podjazdów/zjazdów i nachyleń.
-- Wygładzanie profilu wysokości oraz wykrywanie anomalii pomiarowych; przechowywanie wartości surowych i skorygowanych.
-- Analiza nawierzchni, jeśli dane są dostępne.
-- Wykrywanie i opisywanie odcinków technicznych, stromych podjazdów i zjazdów.
-- Zachowanie punktów trasy, aby granice etapów można było wskazać dokładnie na mapie i wyeksportować do GPX.
-- Każdy parametr powinien mieć źródło i poziom pewności. Brak danych o nawierzchni nie może oznaczać nawierzchni asfaltowej.
+<badge color="success">Prototyp Python wykonany</badge>
+
+W `tests/route_stage_planner.py` zaimplementowano referencyjny parser GPX, obliczanie dystansu, profil wysokości, filtrowanie wysokości, nachylenia oraz sumy podjazdów i zjazdów. Wyniki surowe i wygładzone są raportowane oddzielnie. To prototyp do walidacji, nie gotowy moduł produkcyjny.
+
+Do wykonania w PHP i przed produkcyjnym użyciem pozostają: pełna walidacja przerw/duplikatów/segmentów GPX, filtrowanie zależne od odległości zamiast liczby punktów, walidacja wysokości względem DEM/LiDAR, analiza nawierzchni i klasyfikacja trudności technicznej oraz metadane źródła i pewności dla każdego parametru.
 
 ### Etap B – Stage Planner (podział na dni)
+
+<badge color="success">Prototyp Python wykonany</badge>
+
+Prototyp dzieli trasę na dokładnie zadaną liczbę dni, optymalizując równomierność szacowanego czasu jazdy. Limit godzin jest miękkim ograniczeniem: przekroczenie jest raportowane, ale silnik nie zmienia liczby dni użytkownika. Zwracane są kilometraże i współrzędne granic etapów.
+
+Do wykonania: przeniesienie algorytmu do PHP, uwzględnienie dokładnych punktów granicznych bez utraty fragmentów trasy, rozszerzenie funkcji celu o przewyższenie/nawierzchnię/techniczne odcinki i ewentualne POI oraz walidacja na większej liczbie rzeczywistych tras.
 
 Wejścia:
 - GPX po analizie;
@@ -143,6 +147,12 @@ Model powinien:
 Jeśli nie ma danych POI, można zaproponować geograficzne punkty zakończenia etapów, ale trzeba je oznaczyć jako nieweryfikowane pod kątem noclegu i zaopatrzenia. Nie wolno wymyślać noclegów ani punktów uzupełnień.
 
 ### Etap C – Stage Demand & Time Model (czas i zapotrzebowanie)
+
+<badge color="warning">Wersja wstępna w Pythonie</badge>
+
+Prototyp szacuje czas jazdy z modelu fizycznego (grawitacja, toczenie, aerodynamika) oraz kalibracji CP/FTP lub prędkością typową. Oblicza też pracę mechaniczną i przybliżony koszt metaboliczny. Nie ma jeszcze zwalidowanego modelu wielodniowego zmęczenia, postojów i czasu całkowitego.
+
+Do wykonania: kalibracja i walidacja na rzeczywistych przejazdach, zakresy niepewności, wpływ nawierzchni/wiatru/techniki i postojów oraz implementacja w PHP.
 
 Dla każdego etapu obliczać:
 - czas jazdy na podstawie dystansu, przewyższenia, nawierzchni, nachylenia, trudności i możliwości rowerzysty;
@@ -378,3 +388,186 @@ Minimalne wyjście:
 - wersja modelu, źródła parametrów, status brakujących danych i poziom niepewności.
 
 **Ważne:** ten prototyp nie zastępuje jeszcze wcześniejszego planu prac dla wielodniowego Load Assessment, żywienia, nawodnienia i regeneracji. Dostarcza im wspólny, policzony profil etapów, który będzie podstawą kolejnych modeli.
+
+
+## 9. Docelowa architektura komunikacji: Planer → analiza → wyniki
+
+PHP ma być warstwą produkcyjną i jedynym miejscem, z którego Planer Ridemore uruchamia analizę. Moduły nie powinny komunikować się bezpośrednio z interfejsem Planera ani niezależnie pobierać danych użytkownika. Planer przekazuje kompletny, jawny zestaw wejściowy do jednego serwisu Adventure Engine, a serwis zwraca ustandaryzowany wynik.
+
+### Schemat przepływu
+
+```text
+┌──────────────────────────────┐
+│ RIDEMORE PLANNER (UI)        │
+│                              │
+│ GPX + dni + limity + profil  │
+│ rowerzysty + rower + bagaż   │
+└──────────────┬───────────────┘
+               │ żądanie analizy
+               ▼
+┌──────────────────────────────┐
+│ PHP: AdventureEngineService  │
+│                              │
+│ walidacja wejścia            │
+│ uzupełnienie danych profilu  │
+│ wersjonowanie żądania        │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ RouteAnalyzer                │
+│ GPX → profil odcinków        │
+│ dystans / wysokość / grade   │
+│ segmenty / jakość danych     │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ StagePlanner                 │
+│ profil + liczba dni + limity │
+│ → granice etapów             │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ StageDemandModel             │
+│ czas / prędkość / moc / praca│
+│ energia mechaniczna i koszt  │
+│ metaboliczny (szacunek)      │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ AdventureEngine              │
+│ obciążenie / żywienie / woda │
+│ bezpieczeństwo / regeneracja│
+└──────────────┬───────────────┘
+               │ jeden kontrakt wyniku
+               ▼
+┌──────────────────────────────┐
+│ PHP: AdventurePlanResult     │
+│ summary + stages[] + warnings│
+│ estimates + provenance      │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ RIDEMORE PLANNER (UI)        │
+│ mapa + profil + karty dni    │
+│ ostrzeżenia + edycja planu   │
+└──────────────────────────────┘
+```
+
+### Odpowiedzialności warstw
+
+| Warstwa | Odpowiedzialność | Nie powinna |
+|---|---|---|
+| Planer UI | Zebrać GPX, liczbę dni, limity i preferencje; pokazać wynik | Samodzielnie liczyć fizyki trasy |
+| AdventureEngineService (PHP) | Walidować wejście, wywołać moduły w kolejności, złożyć odpowiedź | Zawierać logiki widoku lub duplikować obliczenia |
+| RouteAnalyzer | Przetworzyć GPX na znormalizowane odcinki i profil wysokości | Decydować o liczbie dni |
+| StagePlanner | Wyznaczyć dokładnie tyle etapów, ile podał użytkownik | Zmieniać plan użytkownika bez jego zgody |
+| StageDemandModel | Oszacować czas, prędkość, moc i koszt energetyczny | Udawać pomiar, gdy wejściem są szacunki |
+| Moduły Adventure Engine | Ocenić obciążenie, CHO, płyny, bezpieczeństwo i regenerację | Wymyślać brakujące dane lub potwierdzoną dostępność POI |
+| AdventurePlanResult | Zwrócić jeden stabilny kontrakt dla UI | Zawierać formatowanie zależne od konkretnego widoku |
+
+### Kontrakt wejściowy – przykład
+
+```json
+{
+  "request_id": "uuid",
+  "model_version": "gpx-physics-stage-planner-0.1",
+  "route": {
+    "format": "gpx",
+    "content": "<GPX albo identyfikator pliku>"
+  },
+  "trip": {
+    "days": 4,
+    "max_riding_hours_per_day": 8,
+    "preferred_riding_hours_per_day": 6
+  },
+  "rider": {
+    "body_mass_kg": 75,
+    "critical_power_w": null,
+    "ftp_w": null,
+    "typical_speed_kmh": 18,
+    "reference_grade": 0
+  },
+  "equipment": {
+    "bike_mass_kg": 14,
+    "luggage_mass_kg": 8
+  },
+  "model_parameters": {
+    "gross_efficiency": 0.22,
+    "crr": 0.006,
+    "cda": 0.4,
+    "air_density": 1.2,
+    "headwind_mps": 0
+  }
+}
+```
+
+To jest ilustracyjny kontrakt. W produkcji należy walidować jednostki, zakresy, pochodzenie danych i brakujące pola. Nie wolno wpisywać wartości przykładowych jako domyślnych danych konkretnego użytkownika.
+
+### Kontrakt wyjściowy – przykład
+
+```json
+{
+  "request_id": "uuid",
+  "model_version": "gpx-physics-stage-planner-0.1",
+  "status": "completed_with_estimates",
+  "route_summary": {
+    "distance_km": 412.8,
+    "elevation_gain_m": 0,
+    "elevation_gain_source": "smoothed_gpx_estimate"
+  },
+  "trip_summary": {
+    "requested_days": 4,
+    "actual_days": 4,
+    "total_estimated_moving_hours": 0,
+    "time_limit_exceeded_days": []
+  },
+  "stages": [
+    {
+      "day": 1,
+      "distance_km": 0,
+      "elevation_gain_m": 0,
+      "estimated_moving_hours": 0,
+      "estimated_average_speed_kmh": 0,
+      "mechanical_work_kj": 0,
+      "estimated_metabolic_energy_kcal": 0,
+      "start_coordinate": {"lat": 0, "lon": 0},
+      "end_coordinate": {"lat": 0, "lon": 0},
+      "time_limit_overrun_hours": 0,
+      "load_status": "estimated"
+    }
+  ],
+  "warnings": [],
+  "data_quality": {
+    "elevation": "estimated",
+    "surface": "unknown",
+    "power_calibration": "typical_speed_proxy",
+    "uncertainty": "high"
+  }
+}
+```
+
+Wartości zerowe w powyższym przykładzie są wyłącznie placeholderami schematu, nie wartościami domyślnymi ani prawidłowym wynikiem. W produkcyjnym JSON pola nieznane powinny być `null` lub mieć jawny status `unknown`, a nie zero.
+
+### Zasady komunikacji
+
+1. Planer wysyła jedno żądanie do PHP, nie wywołuje osobno każdego eksperta.
+2. PHP waliduje wejście i uruchamia moduły w ustalonej kolejności.
+3. Route Analyzer zwraca znormalizowany profil odcinków; Stage Planner i pozostałe moduły pracują na tym samym profilu.
+4. Stage Planner zachowuje liczbę dni zadaną przez użytkownika.
+5. Każdy wynik liczbowy ma jednostkę, źródło/pochodzenie i status: measured, declared, calculated, estimated lub unknown.
+6. PHP zwraca jeden obiekt wyniku. UI tylko go prezentuje; nie przelicza fizyki.
+7. Po zmianie liczby dni, limitu lub danych rowerzysty Planer wysyła nowe żądanie analizy. Można później dodać cache po hashu GPX + parametrów.
+8. Wersja modelu i parametrów musi być zapisana przy wyniku, aby można było odtworzyć obliczenia.
+
+### Kolejność implementacji PHP
+
+1. Zdefiniować klasy/kontrakty DTO: `AdventurePlanRequest`, `RouteAnalysis`, `RouteSegment`, `StagePlan`, `StageResult`, `AdventurePlanResult`.
+2. Zaimplementować `RouteAnalyzer` i testy zgodności z Pythonem na tych samych plikach GPX.
+3. Zaimplementować `StagePlanner` i porównać granice etapów oraz sumy z Pythonem.
+4. Zaimplementować `StageDemandModel`; porównywać czas, prędkość, pracę i energię z tolerancją numeryczną.
+5. Podłączyć istniejący Adventure Engine (reguły JSON) do wspólnego `stages[]`.
+6. Udostępnić jedną metodę serwisu PHP, np. `AdventureEngineService::analyze(AdventurePlanRequest $request)`.
+7. Dodać endpoint API dla Planera, autoryzację, limity rozmiaru GPX, obsługę błędów i logowanie wersji modelu.
+8. Dopiero potem zintegrować UI Planera i widok wyników.
+
+**Granica odpowiedzialności:** Python pozostaje narzędziem referencyjnym i testowym. Docelowo runtime produkcyjny działa w PHP; nie wymagamy uruchamiania Pythona na serwerze Ridemore.
