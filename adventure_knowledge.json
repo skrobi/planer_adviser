@@ -2,7 +2,7 @@
   "meta": {
     "system_name": "RideMore Expert System Knowledge Base",
     "schema_version": "1.0.0-alpha",
-    "knowledge_version": "0.9.3-research",
+    "knowledge_version": "0.9.4-composition",
     "created": "2026-11-04",
     "updated": "2026-11-04",
     "language": "pl-en",
@@ -103,6 +103,11 @@
           "Clarified event-specific sleep heuristic; threshold does not certify safety.",
           "Added critical rule for very long no-sleep single-stage attempt by a beginner and actionable stop criteria."
         ]
+      },
+      {
+        "version": "0.9.4-composition",
+        "date": "2026-11-04",
+        "description": "Added deterministic recommendation composition contract: safety, nutrition and hydration cards combine source rules without inventing route stages, declared stock or verified POI availability."
       }
     ],
     "notes": "Quality and source traceability prioritized over volume. Arbitrary thresholds avoided. Missing data handled via insufficient_data / user_input_required. Safety hierarchy enforced in conflict model (to be expanded)."
@@ -5260,7 +5265,7 @@
       "en"
     ],
     "resolution": "For any field that is an object with locale keys (pl/en), PHP picks $field[$locale] ?? $field['en'] ?? $field['pl'] ?? first string value. Flat English-only strings are treated as en until migrated.",
-    "message_keys": "Primary UX strings live under recommendation_catalog.items.*.user_facing_template.{pl|en}",
+    "message_keys": "Primary UX strings live under recommendation_catalog.items.*.user_facing_template.{pl|en}; composed cards are defined by recommendation_composition and rendered from derived model outputs",
     "severity_labels": {
       "critical": {
         "pl": "Krytyczne",
@@ -5357,6 +5362,112 @@
       "not_exists": "not_exists(path)",
       "and": "and(condition, ...)",
       "or": "or(condition, ...)"
+    }
+  },
+  "recommendation_composition": {
+    "version": "1.0",
+    "mode": "deterministic",
+    "description": {
+      "pl": "Łączy powiązane reguły w krótkie karty użytkownika. Nie tworzy nowych obliczeń ani nie uzupełnia brakujących danych.",
+      "en": "Combines related rules into concise user cards. It does not create calculations or fill missing data."
+    },
+    "groups": [
+      {
+        "id": "safety_and_staging",
+        "title": {
+          "pl": "Bezpieczeństwo i plan etapu",
+          "en": "Safety and stage plan"
+        },
+        "priority": 100,
+        "severity_order": [
+          "critical",
+          "warning",
+          "recommendation",
+          "info"
+        ],
+        "source_rule_ids": [
+          "ultra_sleep_zero_long_inexperienced",
+          "ultra_sleep_low",
+          "adv_first_bikepacking_uncertainty",
+          "log_stage_length_vs_experience",
+          "ultra_long_effort_flag"
+        ],
+        "policies": [
+          "critical_safety_first",
+          "never_propose_exact_stage_count_without_stage_plan",
+          "never_infer_route_segments_or_lodging",
+          "preserve_stop_criteria_from_catalog"
+        ]
+      },
+      {
+        "id": "nutrition",
+        "title": {
+          "pl": "Jedzenie i zapas energii",
+          "en": "Food and energy supply"
+        },
+        "priority": 80,
+        "source_rule_ids": [
+          "nut_pack_insufficient",
+          "nut_cho_buffer_unknown_pack"
+        ],
+        "policies": [
+          "when_pack_not_declared_never_claim_pack_is_insufficient",
+          "buffer_mode_is_a_start_buffer_not_full_route_supply",
+          "show_stage_cho_need_as_estimate",
+          "show_resupply_km_as_planning_estimate_only"
+        ]
+      },
+      {
+        "id": "hydration",
+        "title": {
+          "pl": "Woda i nawodnienie",
+          "en": "Water and hydration"
+        },
+        "priority": 75,
+        "source_rule_ids": [
+          "nut_hydration_carry_insufficient"
+        ],
+        "policies": [
+          "show_operational_rate_not_personal_sweat_rate_unless_measured",
+          "show_resupply_km_as_latest_planning_point_not_verified_poi",
+          "never_claim_poi_chain_is_sufficient_without_volume_and_availability"
+        ]
+      }
+    ],
+    "output_contract": {
+      "fields": [
+        "id",
+        "title",
+        "severity",
+        "priority",
+        "source_rule_ids",
+        "summary",
+        "details",
+        "data_status",
+        "actions"
+      ],
+      "data_status_values": [
+        "known",
+        "estimated",
+        "user_input_required",
+        "insufficient_data"
+      ],
+      "sorting": "priority_desc_then_id",
+      "deduplicate_by": "group_id",
+      "locale": "i18n.default_locale"
+    },
+    "route_planning_gate": {
+      "required_inputs": [
+        "route.gpx_summary",
+        "route.elevation_profile",
+        "stage.planned_distance_km",
+        "stage.elevation_gain_m",
+        "trip.horizon",
+        "trip.days_count",
+        "user.preferred_stage_length_km",
+        "poi_list"
+      ],
+      "rule": "Exact stage count, stage distances, climb distribution, overnight stops and POI recommendations may be shown only when the relevant route profile, constraints and POI data are present and evaluated. Otherwise ask for missing inputs; do not generate a plausible-looking itinerary."
     }
   }
 }
