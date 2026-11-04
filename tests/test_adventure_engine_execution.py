@@ -38,6 +38,8 @@ class ExecutableAdventureEngineTests(unittest.TestCase):
         self.assertEqual(nutrition["data_status"], "user_input_required")
         self.assertIn("Nie zadeklarowano", nutrition["summary"])
         self.assertNotIn("zapas (", nutrition["summary"])
+        self.assertNotIn("nut_pack_insufficient", nutrition["source_rule_ids"])
+        self.assertTrue(any("14,45 l" in x for x in hydration["details"]))
         self.assertEqual(hydration["data_status"], "estimated")
         self.assertTrue(any("nie potwierdza" in x for x in hydration["details"]))
 
