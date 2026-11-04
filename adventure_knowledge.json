@@ -3547,6 +3547,20 @@
         "required": false,
         "unknown_allowed": true,
         "description": "Whether the event has an organizer time limit."
+      },
+      "planned_stops_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Estimated total planned stops during the event; missing means margin estimate is partial."
+      },
+      "planned_sleep_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Total planned sleep during the event; missing means margin estimate is partial."
       }
     },
     "naming_conventions": {
@@ -3856,7 +3870,7 @@
         "pack_cho_g": "if(mode == 'pack', coalesce(user.planned_pack.gels,0)*gel_cho + coalesce(user.planned_pack.bananas,0)*banana_cho + coalesce(user.planned_pack.bars,0)*bar_cho + coalesce(user.planned_pack.other_cho_g,0), null)",
         "mode": "if(user.planned_pack_declared == true, 'pack', 'buffer')",
         "recommended_start_cho_g": "target_g_h * min(buffer_start_hours, stage.estimated_time_hours)",
-        "effective_start_cho_g": "if(mode == pack, pack_cho_g, recommended_start_cho_g)",
+        "effective_start_cho_g": "if(mode == 'pack', pack_cho_g, recommended_start_cho_g)",
         "coverage_hours": "effective_start_cho_g / max(target_g_h, 1)",
         "coverage_km_from_start": "coverage_hours * max(user.typical_speed_kmh, 8)",
         "resupply_needed_by_km": "coverage_km_from_start * coverage_safety",
@@ -4042,7 +4056,9 @@
         "stage.relative_effort_factor",
         "stage.energy_kj_proxy",
         "stage.cho_target_g_per_h_operational",
-        "stage.fluid_target_l_per_h_operational"
+        "stage.fluid_target_l_per_h_operational",
+        "stage.luggage_effort_component",
+        "stage.input_completeness"
       ],
       "algorithm": {
         "steps": [
@@ -4075,7 +4091,8 @@
       "limitations": [
         "Without climb_segments, only total elevation_gain_m is used — no per-km steepness.",
         "energy_kj_proxy must not be presented as precise personal calorie need.",
-        "GPX parsing of segments is engine responsibility; KB only defines contract."
+        "GPX parsing of segments is engine responsibility; KB only defines contract.",
+        "Body mass is never imputed. When body mass or luggage mass is missing, the luggage/body ratio component is omitted and input completeness is marked partial."
       ],
       "constants": {
         "surface_speed_factor": {
@@ -4116,11 +4133,13 @@
         "stage.estimated_time_hours": "coalesce(ride.estimated_time_hours, time_h_luggage)",
         "climb_load_m": "coalesce(sum(route.climb_segments.gain_m), stage.elevation_gain_m)",
         "gain_per_km": "climb_load_m / max(stage.planned_distance_km, 1)",
-        "relative_effort_factor": "clamp(1 + gain_per_km * gain_per_km_effort_k + coalesce(route.unpaved_fraction,0) * unpaved_effort_k + (coalesce(user.luggage_mass_kg,0) / max(coalesce(user.body_mass_kg,75),40)) * luggage_effort_k, 1.0, effort_factor_cap)",
+        "relative_effort_factor": "clamp(1 + gain_per_km * gain_per_km_effort_k + coalesce(route.unpaved_fraction,0) * unpaved_effort_k + coalesce(stage.luggage_effort_component,0), 1.0, effort_factor_cap)",
         "stage.cho_target_g_per_h_operational": "if(stage.estimated_time_hours < 1, 0, if(stage.estimated_time_hours <= 2.5, cho_g_per_h.h1_to_2_5, cho_g_per_h.gt_2_5))",
         "heat_m": "if(environment.temperature_c < 15, heat_mult.lt_15, if(environment.temperature_c <= 22, heat_mult.15_22, if(environment.temperature_c <= 28, heat_mult.22_28, heat_mult.gt_28)))",
         "stage.fluid_target_l_per_h_operational": "coalesce(user.sweat_rate_l_per_h, fluid_l_per_h_base * coalesce(heat_m, 1.0) * (1 + stage.elevation_gain_m/1000 * elev_fluid_k_per_1000m))",
-        "stage.energy_kj_proxy": "energy_kj_per_km_base * stage.planned_distance_km * relative_effort_factor"
+        "stage.energy_kj_proxy": "energy_kj_per_km_base * stage.planned_distance_km * relative_effort_factor",
+        "luggage_effort_component": "if(and(exists(user.luggage_mass_kg), exists(user.body_mass_kg)), (user.luggage_mass_kg / max(user.body_mass_kg,40)) * luggage_effort_k, null)",
+        "input_completeness": "if(and(exists(user.body_mass_kg), exists(user.luggage_mass_kg)), 'complete_for_load', 'partial_load_inputs')"
       }
     },
     "effort_decay": {
@@ -4201,7 +4220,8 @@
       ],
       "outputs": [
         "race.time_margin_hours",
-        "race.margin_status"
+        "race.margin_status",
+        "race.margin_completeness"
       ],
       "constants": {
         "tight_h": 1,
@@ -4210,10 +4230,14 @@
       "formulas": {
         "used": "stage.estimated_time_hours + coalesce(planned_stops_hours,0) + coalesce(planned_sleep_hours,0)",
         "race.time_margin_hours": "event.time_limit_hours - used",
-        "race.margin_status": "if(race.time_margin_hours < 0, 'over', if(race.time_margin_hours < tight_h, 'tight', if(race.time_margin_hours < ok_h, 'moderate', 'comfortable')))"
+        "race.margin_status": "if(race.time_margin_hours < 0, 'over', if(race.time_margin_hours < tight_h, 'tight', if(race.time_margin_hours < ok_h, 'moderate', 'comfortable')))",
+        "margin_completeness": "if(and(exists(planned_stops_hours), exists(planned_sleep_hours)), 'complete', 'partial')"
       },
       "source_ids": [
         "src_acp_brevet_times"
+      ],
+      "limitations": [
+        "If planned stops or planned sleep are unknown, margin is partial and must not be presented as a guaranteed finish-time forecast."
       ]
     }
   },
@@ -4344,7 +4368,8 @@
           "user.planned_pack.gels",
           "user.planned_pack.bananas",
           "user.planned_pack.bars",
-          "user.planned_pack.other_cho_g"
+          "user.planned_pack.other_cho_g",
+          "user.planned_pack_declared"
         ],
         "run_models": [
           "stage_demand",
@@ -4419,14 +4444,16 @@
           "route.climb_segments",
           "event.has_time_limit",
           "event.time_limit_hours",
-          "event.intermediate_controls_timed"
+          "event.intermediate_controls_timed",
+          "planned_stops_hours",
+          "planned_sleep_hours"
         ],
         "run_models": [
           "stage_demand",
           "hydration_carry_plan",
           "nutrition_pack_plan",
           "gi_risk_vs_cho_rate",
-          "time_margin_vs_limit"
+          "time_margin"
         ],
         "run_experts": [
           "ultra",
@@ -5162,7 +5189,11 @@
       "lookup",
       "sum",
       "has_verified_water_before",
-      "has_verified_food_before"
+      "has_verified_food_before",
+      "and",
+      "or",
+      "exists",
+      "not_exists"
     ],
     "functions": {
       "min": "min(a,b,...)",
@@ -5173,7 +5204,11 @@
       "lookup": "lookup(map, key, fallback)",
       "sum": "sum(array.field)",
       "has_verified_water_before": "true only when a verified/official water POI exists before km; does not imply volume sufficiency",
-      "has_verified_food_before": "true only when a verified/official food POI exists before km; does not imply CHO quantity sufficiency"
+      "has_verified_food_before": "true only when a verified/official food POI exists before km; does not imply CHO quantity sufficiency",
+      "exists": "exists(path) — true only when a value is present",
+      "not_exists": "not_exists(path)",
+      "and": "and(condition, ...)",
+      "or": "or(condition, ...)"
     }
   }
 }
