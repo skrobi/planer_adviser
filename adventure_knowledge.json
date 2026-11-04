@@ -3854,6 +3854,16 @@
       "php_helpers": {
         "has_verified_water_before": "any logistics.verified_water_pois_km where km <= coverage_km_from_start * 0.9",
         "chain_ok": "extend coverage by assuming refill to capacity at each verified POI until stage end or gap"
+      },
+      "formula_outputs": {
+        "rate": "plan.hydration.target_l_per_h",
+        "stage_need_l": "plan.hydration.stage_need_l",
+        "start_l": "plan.hydration.recommended_start_l",
+        "coverage_hours": "plan.hydration.coverage_hours_from_start",
+        "coverage_km_from_start": "plan.hydration.coverage_km_from_start",
+        "resupply_needed_by_km": "plan.hydration.resupply_needed_by_km",
+        "satisfied": "plan.hydration.satisfied",
+        "status": "plan.hydration.status"
       }
     },
     "nutrition_pack_plan": {
@@ -3985,6 +3995,19 @@
         "resupply_needed_by_km": "coverage_km_from_start * coverage_safety",
         "satisfied": "if(effective_start_cho_g >= stage_cho_need_g * 0.95, true, false)",
         "status": "if(effective_start_cho_g >= stage_cho_need_g * 0.95, 'satisfied', if(has_verified_food_before(coverage_km_from_start), 'insufficient_data', 'resupply_required'))"
+      },
+      "formula_outputs": {
+        "gel_cho": "plan.nutrition.gel_cho_g_used",
+        "bar_cho": "plan.nutrition.bar_cho_g_used",
+        "banana_cho": "plan.nutrition.banana_cho_g_used",
+        "target_g_h": "plan.nutrition.target_cho_g_per_h",
+        "stage_cho_need_g": "plan.nutrition.stage_cho_need_g",
+        "pack_cho_g": "plan.nutrition.pack_cho_g",
+        "mode": "plan.nutrition.mode",
+        "recommended_start_cho_g": "plan.nutrition.recommended_start_cho_g",
+        "resupply_needed_by_km": "plan.nutrition.resupply_needed_by_km",
+        "satisfied": "plan.nutrition.satisfied",
+        "status": "plan.nutrition.status"
       }
     },
     "gi_risk_vs_cho_rate": {
@@ -4134,7 +4157,12 @@
       "outputs": [
         "plan.gi.risk_score",
         "plan.gi.risk_band"
-      ]
+      ],
+      "formula_outputs": {
+        "rate": "plan.gi.target_cho_g_per_h",
+        "base": "plan.gi.base_risk",
+        "score": "plan.gi.risk_score"
+      }
     },
     "stage_demand": {
       "id": "stage_demand",
@@ -4249,6 +4277,13 @@
         "stage.energy_kj_proxy": "energy_kj_per_km_base * stage.planned_distance_km * relative_effort_factor",
         "luggage_effort_component": "if(and(exists(user.luggage_mass_kg), exists(user.body_mass_kg)), (user.luggage_mass_kg / max(user.body_mass_kg,40)) * luggage_effort_k, null)",
         "input_completeness": "if(and(exists(user.body_mass_kg), exists(user.luggage_mass_kg)), 'complete_for_load', 'partial_load_inputs')"
+      },
+      "formula_outputs": {
+        "climb_load_m": "stage.climb_load_m",
+        "steep_climb_km": "stage.steep_climb_km",
+        "gain_per_km": "stage.gain_per_km",
+        "input_completeness": "stage.input_completeness",
+        "luggage_effort_component": "stage.luggage_effort_component"
       }
     },
     "effort_decay": {
@@ -4347,7 +4382,11 @@
       ],
       "limitations": [
         "If planned stops or planned sleep are unknown, margin is partial and must not be presented as a guaranteed finish-time forecast."
-      ]
+      ],
+      "formula_outputs": {
+        "used": "race.used_time_hours",
+        "margin_completeness": "race.margin_completeness"
+      }
     }
   },
   "decision_tree": {
