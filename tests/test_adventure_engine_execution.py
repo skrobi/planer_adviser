@@ -25,5 +25,28 @@ class ExecutableAdventureEngineTests(unittest.TestCase):
         self.assertNotIn("body_mass_kg", result["derived"]["user"])
         self.assertEqual(result["derived"]["stage"]["input_completeness"], "partial_load_inputs")
 
+
+    def test_s01_composes_three_user_facing_cards_without_inventing_data(self):
+        result = execute(KB, next(s for s in SCENARIOS if s["id"] == "S01_beginner_300km_no_sleep"))
+        cards = result["composed_recommendations"]
+        self.assertEqual([c["id"] for c in cards], ["safety_and_staging", "nutrition", "hydration"])
+        safety, nutrition, hydration = cards
+        self.assertEqual(safety["severity"], "critical")
+        self.assertIn("wymaga zmiany", safety["summary"])
+        self.assertNotIn("3 etapy", " ".join(safety["details"] + safety["actions"]))
+        self.assertEqual(nutrition["data_status"], "user_input_required")
+        self.assertIn("Nie zadeklarowano", nutrition["summary"])
+        self.assertNotIn("zapas (", nutrition["summary"])
+        self.assertEqual(hydration["data_status"], "estimated")
+        self.assertTrue(any("nie potwierdza" in x for x in hydration["details"]))
+
+    def test_declared_pack_is_distinguished_from_unknown_pack(self):
+        s01 = next(s for s in SCENARIOS if s["id"] == "S01_beginner_300km_no_sleep")
+        s07 = next(s for s in SCENARIOS if s["id"] == "S07_declared_120g_CHO_pack")
+        unknown = execute(KB, s01)["composed_recommendations"]
+        declared = execute(KB, s07)["composed_recommendations"]
+        self.assertEqual(next(c for c in unknown if c["id"] == "nutrition")["data_status"], "user_input_required")
+        self.assertIn("Zadeklarowany zapas", next(c for c in declared if c["id"] == "nutrition")["summary"])
+
 if __name__ == "__main__":
     unittest.main()
