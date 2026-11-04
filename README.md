@@ -302,3 +302,79 @@ GPX + profil rowerzysty + założenia wyprawy
 ---
 
 **Stan na 2026-11-04:** baza wiedzy, modele i pierwsza warstwa rekomendacji mają działający interpreter referencyjny i zielone testy CI. Największa brakująca część to analiza rzeczywistego GPX, podział na etapy według założeń użytkownika oraz powiązanie każdego etapu z czasem, obciążeniem, żywieniem, nawodnieniem i regeneracją.
+## 8. Pierwszy referencyjny model GPX i podziału etapów (Python)
+
+Dodano eksperymentalny, wykonywalny model referencyjny:
+- `tests/route_stage_planner.py` – parser GPX, analiza profilu wysokości, model fizyczny jazdy i podział na zadaną liczbę etapów;
+- `tests/test_route_stage_planner.py` – testy syntetycznej trasy oraz rzeczywistego pliku Kotlina400.
+
+### Co liczy prototyp
+
+1. Parsuje punkty GPX (lat/lon/elevation) i oblicza dystans geodezyjny.
+2. Wygładza profil wysokości filtrem medianowym i średnią kroczącą, następnie agreguje trasę do krótkich odcinków dystansowych.
+3. Wylicza nachylenie, podjazdy i zjazdy dla odcinków.
+4. Szacuje prędkość na odcinku z równania mocy potrzebnej do pokonania grawitacji, oporów toczenia i oporu aerodynamicznego.
+5. Uwzględnia łączną masę rowerzysty, roweru i bagażu, współczynnik toczenia, CdA, gęstość powietrza, wiatr i sprawność napędu.
+6. Kalibruje dostępną moc z CP, FTP (z konfigurowalnym współczynnikiem turystycznym) albo typowej prędkości na zadanym profilu referencyjnym.
+7. Oblicza mechaniczną pracę i przybliżony koszt metaboliczny, używając jawnego założenia gross efficiency.
+8. Dzieli trasę na dokładnie wskazaną liczbę dni, minimalizując różnice szacowanego czasu jazdy. Limit godzin dziennie jest ograniczeniem miękkim: jeśli zostaje przekroczony, etap jest oznaczony, ale liczba dni użytkownika nie jest zmieniana.
+9. Zwraca kilometraż początku/końca etapów i współrzędne granic, aby przyszły PHP mógł wyświetlić podział na mapie.
+
+### Przykładowe uruchomienie
+
+```bash
+python tests/route_stage_planner.py tests/kotlina400-bikepacking-route.gpx \\
+  --days 4 --body-mass-kg 75 --bike-mass-kg 14 --luggage-mass-kg 8 \\
+  --typical-speed-kmh 18 --max-hours 12 --output kotlina400-4days.json
+```
+
+Można podać `--critical-power-w` albo `--ftp-w` zamiast `--typical-speed-kmh`. CP/FTP jest lepszym wejściem, jeżeli pochodzi z wiarygodnego pomiaru. Średnia prędkość jest tylko kalibracją przybliżoną i wymaga informacji, na jakiej nawierzchni i profilu została osiągnięta.
+
+### Model fizyczny
+
+Dla każdego odcinka szacowana moc na kole wynika z sumy:
+- składowej grawitacyjnej: masa całego układu × g × nachylenie × prędkość;
+- oporów toczenia: współczynnik toczenia × masa × g × prędkość;
+- oporu aerodynamicznego: 0,5 × gęstość powietrza × CdA × prędkość względna do wiatru do kwadratu × prędkość.
+
+Następnie model rozwiązuje prędkość odpowiadającą przyjętej mocy trwałej. Mechaniczna praca jest przeliczana na szacunkowy koszt metaboliczny przez podzielenie przez gross efficiency. Współczynniki są jawne i konfigurowalne; domyślne wartości nie są indywidualną kalibracją sportowca.
+
+### Ograniczenia prototypu – nie traktować jako gotowej prognozy
+
+- Wygładzanie jest obecnie zależne od liczby punktów GPX, a nie od stałego okna odległości; wymaga dalszej walidacji na śladach o różnej gęstości.
+- Surowe dane wysokości mogą być zaszumione. Prototyp raportuje surowe i wygładzone przewyższenie osobno; docelowo należy preferować wiarygodny DEM/LiDAR lub zweryfikowany profil wysokości.
+- Prędkość typowa nie określa jednoznacznie mocy ani zdolności wspinaczkowych. Wymaga profilu referencyjnego; przy braku CP/FTP wynik ma wysoką niepewność.
+- Model nie ma jeszcze zwalidowanego profilu mocy na wielu czasach, mocy progowej na podjazdach, indywidualnego kosztu jazdy na różnych nawierzchniach ani wpływu zmęczenia z poprzednich dni.
+- Powierzchnia, trudność techniczna, wiatr, postoje i warunki pogodowe są uwzględniane tylko wtedy, gdy zostaną dostarczone jako dane wejściowe. Domyślne współczynniki są uproszczeniem.
+- Koszt metaboliczny nie jest automatycznie ilością kalorii, które należy zjeść, ani gramami węglowodanów do spożycia podczas jazdy.
+- Wynik jest prototypem badawczo-inżynierskim, nie poradą treningową ani medyczną.
+
+### Podstawa naukowa i interpretacja
+
+Model opiera się na mechanice jazdy rowerem (grawitacja, toczenie, aerodynamika), ale fizyczny model trasy nie opisuje samodzielnie fizjologii zawodnika.
+
+- Martin et al., *Modeling road-cycling performance* (1995) – model pierwszych zasad, uwzględniający m.in. wiatr, opony, masę i opory: https://pubmed.ncbi.nlm.nih.gov/7615475/
+- Millour et al. (2023) – modelowanie jazdy w warunkach terenowych i użycie danych GPS, prędkości oraz nachylenia: https://journals.sagepub.com/doi/full/10.1177/17479541221106386
+- Berjisian et al. (2023) – niepewność profili wysokości i nachylenia z GPS; wysokiej jakości LiDAR/DEM jest lepszy, a filtrowanie i czyszczenie danych poprawia wyniki: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0295027
+- Ettema & Lorås (2009) – przegląd sprawności energetycznej w kolarstwie: https://pubmed.ncbi.nlm.nih.gov/19229554/
+- Chorley & Lamb (2020) – critical power (CP), W' i ograniczenia stosowania modelu do intensywności wysiłku: https://pmc.ncbi.nlm.nih.gov/articles/PMC7552657/
+- Poole et al. (2016) – fizjologiczne znaczenie critical power: https://pubmed.ncbi.nlm.nih.gov/27031742/
+- MacDougall et al. (2022) – złożoność i ograniczenia interpretacji sprawności w kolarstwie: https://pubmed.ncbi.nlm.nih.gov/35253274/
+
+### Kontrakt do przyszłego PHP
+
+PHP powinien odtworzyć te same kroki i zwracać te same pola, nie kopiować bezrefleksyjnie implementacji Pythona. Minimalne wejście:
+- GPX lub znormalizowany profil odcinków;
+- `days`, `max_riding_hours_per_day`;
+- masa ciała, masa roweru, masa bagażu;
+- CP albo FTP, albo prędkość typowa wraz z profilem referencyjnym;
+- gross efficiency (lub jawne założenie);
+- parametry roweru/trasy: Crr, CdA, wiatr, nawierzchnia i trudność.
+
+Minimalne wyjście:
+- analiza trasy z surowym i skorygowanym profilem wysokości;
+- dokładnie N etapów;
+- dla każdego etapu dystans, podjazdy/zjazdy, czas jazdy, średnia prędkość, praca mechaniczna, szacowany koszt metaboliczny, współrzędne granic i przekroczenie limitu czasu;
+- wersja modelu, źródła parametrów, status brakujących danych i poziom niepewności.
+
+**Ważne:** ten prototyp nie zastępuje jeszcze wcześniejszego planu prac dla wielodniowego Load Assessment, żywienia, nawodnienia i regeneracji. Dostarcza im wspólny, policzony profil etapów, który będzie podstawą kolejnych modeli.
