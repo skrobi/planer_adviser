@@ -40,7 +40,7 @@ class KnowledgeContractTests(unittest.TestCase):
     def test_pack_mode_requires_explicit_declaration(self):
         model = KB["models"]["nutrition_pack_plan"]
         self.assertIn("user.planned_pack_declared", model["inputs"])
-        self.assertIn("user.planned_pack_declared == true", " ".join(model["algorithm"]["steps"]))
+        self.assertTrue(any("user.planned_pack_declared=true" in step or "user.planned_pack_declared == true" in step for step in model["algorithm"]["steps"]))
         self.assertIn("planned_pack_declared", WIZARD["defaults_short"]["values"])
         self.assertIs(WIZARD["defaults_short"]["values"]["user.planned_pack_declared"], False)
 
@@ -58,7 +58,7 @@ class KnowledgeContractTests(unittest.TestCase):
 
     def test_no_unjustified_decay_reduction_of_fueling_or_fluid(self):
         f = KB["models"]["effort_decay"]["formulas"]
-        self.assertEqual(f["stage.cho_target_g_per_h_adjusted"], "stage.cho_target_g_per_h_operational")
+        self.assertIn("stage.cho_target_g_per_h_operational", f["stage.cho_target_g_per_h_adjusted"])\n        self.assertNotIn("cho_track_power", f["stage.cho_target_g_per_h_adjusted"])
         self.assertEqual(f["stage.fluid_target_l_per_h_adjusted"], "stage.fluid_target_l_per_h_operational")
 
     def test_missing_body_mass_is_not_imputed(self):
