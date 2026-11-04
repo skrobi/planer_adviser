@@ -98,9 +98,9 @@ class Formula:
             if name=="lookup_rate_base":
                 rate=args[0]; table=args[1]
                 return next((row[1] for row in table if rate <= row[0]), table[-1][1])
-            if name in ("and","or"):
+            if name in ("and","or","and_","or_"):
                 vals=[bool(x) for x in args]
-                return all(vals) if name=="and" else any(vals)
+                return all(vals) if name in ("and","and_") else any(vals)
             if name=="has_verified_water_before": return self._poi_before("logistics.verified_water_pois_km",args[0])
             if name=="has_verified_food_before": return self._poi_before("logistics.verified_food_pois_km",args[0])
             raise ValueError(f"Unsupported DSL function: {name}")
@@ -110,6 +110,7 @@ class Formula:
         return isinstance(vals,list) and any(isinstance(x,(int,float)) and x <= km*.9 for x in vals)
     def eval(self, expr):
         expr = __import__("re").sub(r"\bif\s*\(", "if_(", expr)
+        expr = __import__("re").sub(r"\b(and|or)\s*\(", lambda m: m.group(1) + "_(", expr)
         expr = __import__("re").sub(r"([A-Za-z_]\w*)\.(\d[\w]*)", r"\1.__key_\2", expr)
         try: tree=ast.parse(expr,mode="eval")
         except SyntaxError as e: raise ValueError(f"Invalid formula {expr!r}: {e}")
