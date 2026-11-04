@@ -16,8 +16,11 @@ jobs:
       - name: Run knowledge contract tests
         run: python -m unittest discover -s tests -v
       - name: Execute JSON-driven Adventure Engine
+        id: runner
+        if: always()
         run: python tests/adventure_engine_runner.py
       - name: Verify scenario recommendations
+        if: always() && steps.runner.outcome == 'success'
         run: python tests/verify_adventure_engine.py
       - name: Upload execution artifacts
         if: always()
