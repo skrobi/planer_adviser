@@ -88,7 +88,7 @@ class Formula:
                 present=get_path(self.ctx,path) is not MISSING and get_path(self.ctx,path) is not None
                 return present if name=="exists" else not present
             args=[self.resolve(a) for a in node.args]
-            if name=="if": return args[1] if bool(args[0]) else args[2]
+            if name in ("if","if_"): return args[1] if bool(args[0]) else args[2]
             if name=="coalesce": return next((x for x in args if x is not MISSING and x is not None), MISSING)
             if name=="min": return min(args) if all(x is not MISSING for x in args) else MISSING
             if name=="max": return max(args) if all(x is not MISSING for x in args) else MISSING
@@ -109,7 +109,7 @@ class Formula:
         vals=get_path(self.ctx,path)
         return isinstance(vals,list) and any(isinstance(x,(int,float)) and x <= km*.9 for x in vals)
     def eval(self, expr):
-        try: tree=ast.parse(expr,mode="eval")
+        expr = __import__("re").sub(r"\\bif\\s*\\(", "if_(", expr)\n        try: tree=ast.parse(expr,mode="eval")
         except SyntaxError as e: raise ValueError(f"Invalid formula {expr!r}: {e}")
         return self.resolve(tree.body)
 
