@@ -198,6 +198,9 @@ def run_rules(kb,ctx):
     return fired
 
 
+def _pl_number(value, digits=2):
+    return f"{value:.{digits}f}".replace(".", ",")
+
 def compose_recommendations(kb, ctx, fired):
     """Build deterministic user-facing cards from configured rule groups and derived values."""
     spec = kb.get("recommendation_composition", {})
@@ -209,6 +212,9 @@ def compose_recommendations(kb, ctx, fired):
         if not sources:
             continue
         ids = [r["id"] for r in sources]
+        if group["id"] == "nutrition" and ctx.get("plan", {}).get("nutrition", {}).get("mode") == "buffer":
+            ids = [rid for rid in ids if rid != "nut_pack_insufficient"]
+            sources = [r for r in sources if r["id"] in ids]
         severity_rank = {"critical": 4, "warning": 3, "recommendation": 2, "info": 1}
         severity = max((r.get("severity", "info") for r in sources), key=lambda s: severity_rank.get(s, 0))
         title = group.get("title", {}).get(locale) or group.get("title", {}).get("en") or group["id"]
@@ -248,20 +254,20 @@ def compose_recommendations(kb, ctx, fired):
                 summary = "Nie zadeklarowano konkretnego zapasu jedzenia — model nie może potwierdzić, że masz wystarczającą ilość na cały etap."
                 start = plan.get("recommended_start_cho_g")
                 if isinstance(start, (int, float)):
-                    details.append(f"Bufor jedzenia na start: około {start:.0f} g węglowodanów (CHO).")
+                    details.append(f"Bufor jedzenia na start: około {_pl_number(start, 0)} g węglowodanów (CHO).")
                 status = "user_input_required"
             else:
                 pack = plan.get("pack_cho_g")
                 if isinstance(pack, (int, float)) and isinstance(need, (int, float)):
-                    summary = f"Zadeklarowany zapas ({pack:.0f} g CHO) jest mniejszy od szacowanego zapotrzebowania etapu."
-                    details.append(f"Szacowane zapotrzebowanie etapu: około {need:.0f} g CHO.")
+                    summary = f"Zadeklarowany zapas ({_pl_number(pack, 0)} g CHO) jest mniejszy od szacowanego zapotrzebowania etapu."
+                    details.append(f"Szacowane zapotrzebowanie etapu: około {_pl_number(need, 0)} g CHO.")
                     details.append(f"Zadeklarowany zapas: {pack:.0f} g CHO.")
                     status = "estimated"
             if isinstance(need, (int, float)):
-                details.append(f"Szacowane zapotrzebowanie całego etapu: około {need:.0f} g CHO.")
+                details.append(f"Szacowane zapotrzebowanie całego etapu: około {_pl_number(need, 0)} g CHO.")
             km = plan.get("resupply_needed_by_km")
             if isinstance(km, (int, float)):
-                details.append(f"Orientacyjny moment, od którego trzeba zaplanować uzupełnienie: około {km:.0f}. km; to nie potwierdza dostępności sklepu ani ilości jedzenia.")
+                details.append(f"Orientacyjny moment, od którego trzeba zaplanować uzupełnienie: około {_pl_number(km, 0)}. km; to nie potwierdza dostępności sklepu ani ilości jedzenia.")
             details.append("Po podziale trasy zapotrzebowanie i zapas należy przeliczyć osobno dla każdego etapu.")
             actions.append("Uzupełnij deklarację produktów i ilości albo wskaż potwierdzone punkty zakupu jedzenia.")
         elif group["id"] == "hydration":
@@ -269,10 +275,10 @@ def compose_recommendations(kb, ctx, fired):
             need, start, rate, km = (plan.get("stage_need_l"), plan.get("recommended_start_l"),
                                     plan.get("target_l_per_h"), plan.get("resupply_needed_by_km"))
             summary = "Zapas wody na starcie nie pokrywa szacowanego zapotrzebowania całego etapu."
-            if isinstance(need, (int, float)): details.append(f"Szacowane zapotrzebowanie etapu: około {need:.2f} l.")
-            if isinstance(start, (int, float)): details.append(f"Zadeklarowana ilość na start: {start:.2f} l.")
-            if isinstance(rate, (int, float)): details.append(f"Operacyjny cel uzupełniania płynów: około {rate:.2f} l/h; nie jest to pomiar indywidualnej potliwości.")
-            if isinstance(km, (int, float)): details.append(f"Uzupełnienie należy zaplanować najpóźniej w okolicy {km:.0f}. km. To punkt planistyczny, a nie potwierdzony punkt poboru wody.")
+            if isinstance(need, (int, float)): details.append(f"Szacowane zapotrzebowanie etapu: około {_pl_number(need)} l.")
+            if isinstance(start, (int, float)): details.append(f"Zadeklarowana ilość na start: {_pl_number(start)} l.")
+            if isinstance(rate, (int, float)): details.append(f"Operacyjny cel uzupełniania płynów: około {_pl_number(rate)} l/h; nie jest to pomiar indywidualnej potliwości.")
+            if isinstance(km, (int, float)): details.append(f"Uzupełnienie należy zaplanować najpóźniej w okolicy {_pl_number(km, 0)}. km. To punkt planistyczny, a nie potwierdzony punkt poboru wody.")
             details.append("Sama obecność POI nie potwierdza dostępnej ilości wody ani możliwości uzupełnienia.")
             actions.append("Dodaj zweryfikowane punkty wody i sprawdź ich dostępność oraz możliwość uzupełnienia odpowiedniej ilości.")
             status = "estimated"
