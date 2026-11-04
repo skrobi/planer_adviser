@@ -110,6 +110,7 @@ class Formula:
         return isinstance(vals,list) and any(isinstance(x,(int,float)) and x <= km*.9 for x in vals)
     def eval(self, expr):
         expr = __import__("re").sub(r"\bif\s*\(", "if_(", expr)
+        expr = __import__("re").sub(r"([A-Za-z_]\w*)\.(\d[\w]*)", r"\1.__key_\2", expr)
         try: tree=ast.parse(expr,mode="eval")
         except SyntaxError as e: raise ValueError(f"Invalid formula {expr!r}: {e}")
         return self.resolve(tree.body)
