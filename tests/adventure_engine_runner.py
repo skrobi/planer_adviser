@@ -74,7 +74,7 @@ class Formula:
             for op,right_node in zip(node.ops,node.comparators):
                 right=self.resolve(right_node)
                 # Missing and explicit null are unknown, never coerced to zero.
-                if left is MISSING or right is MISSING or left is None or right is None: return False
+                if left is MISSING or right is MISSING or left is None or right is None: return MISSING
                 fn={ast.Eq:operator.eq,ast.NotEq:operator.ne,ast.Gt:operator.gt,ast.GtE:operator.ge,ast.Lt:operator.lt,ast.LtE:operator.le}.get(type(op))
                 if not fn: raise ValueError("Unsupported comparison")
                 try:
@@ -93,7 +93,9 @@ class Formula:
                 present=get_path(self.ctx,path) is not MISSING and get_path(self.ctx,path) is not None
                 return present if name=="exists" else not present
             args=[self.resolve(a) for a in node.args]
-            if name in ("if","if_"): return args[1] if bool(args[0]) else args[2]
+            if name in ("if","if_"):
+                if args[0] is MISSING: return MISSING
+                return args[1] if bool(args[0]) else args[2]
             if name=="coalesce": return next((x for x in args if x is not MISSING and x is not None), MISSING)
             if name=="min": return min(args) if all(x is not MISSING for x in args) else MISSING
             if name=="max": return max(args) if all(x is not MISSING for x in args) else MISSING
