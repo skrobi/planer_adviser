@@ -125,7 +125,8 @@ def run_models(kb, ctx):
     for mid in ordered:
         model=kb["models"][mid]; formulas=model.get("formulas",{})
         if not formulas: continue
-        constants=flatten(model.get("constants",{}))
+        constants=dict(model.get("constants",{}))
+        constants.update(flatten(model.get("constants",{})))
         # Assumptions used by formulas are promoted only as explicit JSON values.
         assumptions=model.get("assumptions",{})
         for key,val in assumptions.items():
