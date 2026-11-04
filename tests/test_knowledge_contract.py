@@ -58,7 +58,8 @@ class KnowledgeContractTests(unittest.TestCase):
 
     def test_no_unjustified_decay_reduction_of_fueling_or_fluid(self):
         f = KB["models"]["effort_decay"]["formulas"]
-        self.assertIn("stage.cho_target_g_per_h_operational", f["stage.cho_target_g_per_h_adjusted"])\n        self.assertNotIn("cho_track_power", f["stage.cho_target_g_per_h_adjusted"])
+        self.assertIn("stage.cho_target_g_per_h_operational", f["stage.cho_target_g_per_h_adjusted"])
+        self.assertNotIn("cho_track_power", f["stage.cho_target_g_per_h_adjusted"])
         self.assertEqual(f["stage.fluid_target_l_per_h_adjusted"], "stage.fluid_target_l_per_h_operational")
 
     def test_missing_body_mass_is_not_imputed(self):
