@@ -24,7 +24,7 @@
   "hydration": {
     "target_l_per_h": 0.681,
     "stage_need_l": 16.8,
-    "recommended_start_l": 1.0,
+    "recommended_start_l": 1,
     "coverage_km_from_start": 22.5,
     "resupply_needed_by_km": 19,
     "satisfied": false
@@ -32,7 +32,7 @@
   "nutrition": {
     "mode": "pack",
     "target_cho_g_per_h": 55.8,
-    "stage_cho_need_g": 1197.0,
+    "stage_cho_need_g": 1197,
     "pack_cho_g": 67,
     "coverage_km_from_start": 18.4,
     "resupply_needed_by_km": 15,
@@ -161,5 +161,17 @@
       "message_key": "gi_risk_band",
       "user_facing_pl": null
     }
-  ]
+  ],
+  "meta": {
+    "kind": "illustrative_test_fixture",
+    "not_a_user_profile": true,
+    "validation_status": "not_independently_recomputed",
+    "note": "Assumptions below are synthetic test inputs, not inferred facts or safe defaults. Numeric outputs are illustrative and must be recalculated by the engine from explicit inputs."
+  },
+  "assumptions_policy": {
+    "unprovided_values": "synthetic_fixture_only",
+    "may_be_used_as_user_defaults": false,
+    "must_be_shown_to_user_as_assumptions": true,
+    "must_lower_input_completeness": true
+  }
 }
