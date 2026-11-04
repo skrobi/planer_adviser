@@ -1,0 +1,165 @@
+{
+  "assumptions_used": [
+    "elevation_gain_m=2000 not provided by user — operational placeholder for effort only",
+    "body_mass_kg=75 not provided — only for luggage/body ratio",
+    "luggage_mass_kg=8 backpack estimate (not weighed)",
+    "sandwich other_cho_g=40 operational estimate",
+    "banana_cho=27 default",
+    "typical_distance 40 km / speed 18 km/h for inexperienced"
+  ],
+  "stage_demand": {
+    "distance_km": 300,
+    "elevation_gain_m_assumed": 2000,
+    "estimated_time_hours": 21.45,
+    "relative_effort_factor": 1.369,
+    "cho_op_g_h": 60,
+    "fluid_op_l_h": 0.696
+  },
+  "effort_decay": {
+    "power_factor_end": 0.72,
+    "power_factor_mean": 0.86,
+    "cho_adjusted_g_h": 55.8,
+    "fluid_adjusted_l_h": 0.681
+  },
+  "hydration": {
+    "target_l_per_h": 0.681,
+    "stage_need_l": 16.8,
+    "recommended_start_l": 1.0,
+    "coverage_km_from_start": 22.5,
+    "resupply_needed_by_km": 19,
+    "satisfied": false
+  },
+  "nutrition": {
+    "mode": "pack",
+    "target_cho_g_per_h": 55.8,
+    "stage_cho_need_g": 1197.0,
+    "pack_cho_g": 67,
+    "coverage_km_from_start": 18.4,
+    "resupply_needed_by_km": 15,
+    "satisfied": false,
+    "suggested_pack_note": "model would suggest much larger pack or frequent resupply"
+  },
+  "gi": {
+    "risk_band": "elevated",
+    "risk_score": 0.39
+  },
+  "recommendations_engine": [
+    {
+      "id": "ultra_sleep_zero_long",
+      "expert": "ultra",
+      "priority": 90,
+      "severity": "critical",
+      "name": "Long 300 km bez snu, brak doświadczenia",
+      "message_key": "no_sleep_long_inexperienced",
+      "user_facing_pl": null
+    },
+    {
+      "id": "adv_supply_gap_contingency",
+      "expert": "adventure",
+      "priority": 80,
+      "severity": "warning",
+      "name": "Duża luka zaopatrzenia wymaga planu awaryjnego",
+      "message_key": "require_supply_contingency",
+      "user_facing_pl": null
+    },
+    {
+      "id": "nut_hydration_carry_insufficient",
+      "expert": "nutrition",
+      "priority": 80,
+      "severity": "warning",
+      "name": "Plan wody nie pokrywa etapu bez uzupełnienia",
+      "message_key": "hydration_carry_insufficient",
+      "user_facing_pl": "Zabierz ok. 1.0 L wody na start. Przy Twoim tempie uzupełnienie wody jest potrzebne około 19 km (lub wcześniej na zweryfikowanym punkcie). Szacowane zapotrzebowanie etapu: 16.8 L (ok. 0.681 L/h)."
+    },
+    {
+      "id": "adv_traffic_high",
+      "expert": "adventure",
+      "priority": 75,
+      "severity": "warning",
+      "name": "Duży ruch pojazdów na trasie (kontekst użytkownika)",
+      "message_key": "high_traffic_risk",
+      "user_facing_pl": null
+    },
+    {
+      "id": "nut_pack_insufficient",
+      "expert": "nutrition",
+      "priority": 75,
+      "severity": "warning",
+      "name": "Zapas jedzenia nie pokrywa zapotrzebowania CHO etapu",
+      "message_key": "nutrition_pack_insufficient",
+      "user_facing_pl": "Na etap potrzeba ok. 1197.0 g węglowodanów. W zapasie masz ok. 67 g (żel: 25 g CHO). Propozycja: znacznie większy zapas lub częste sklepy. Rozłóż w czasie: małe porcje regularnie. Uzupełnienie ok. 15 km, jeśli nie dokładasz zapasu."
+    },
+    {
+      "id": "eq_repair_kit_minimum_remote",
+      "expert": "equipment",
+      "priority": 70,
+      "severity": "recommendation",
+      "name": "Brak potwierdzonego zestawu naprawczego",
+      "message_key": "repair_kit_minimum",
+      "user_facing_pl": null
+    },
+    {
+      "id": "ultra_sleep_low",
+      "expert": "ultra",
+      "priority": 70,
+      "severity": "warning",
+      "name": "Niski planowany sen",
+      "message_key": "sleep_low_warning",
+      "user_facing_pl": "Planowany sen jest niski względem danych z długich eventów — rośnie senność i ryzyko błędów."
+    },
+    {
+      "id": "adv_first_bikepacking_uncertainty",
+      "expert": "adventure",
+      "priority": 65,
+      "severity": "recommendation",
+      "name": "Pierwszy multi-day / bikepacking — wyższa niepewność",
+      "message_key": "conservative_stages_first_multi_day",
+      "user_facing_pl": null
+    },
+    {
+      "id": "log_stage_length_vs_experience",
+      "expert": "logistics",
+      "priority": 60,
+      "severity": "warning",
+      "name": "Długość etapu względem doświadczenia",
+      "message_key": "stage_vs_experience",
+      "user_facing_pl": null
+    },
+    {
+      "id": "log_elevation_heavy_stage",
+      "expert": "logistics",
+      "priority": 55,
+      "severity": "info",
+      "name": "Wysokie przewyższenie — uwzględnij regenerację i tempo",
+      "message_key": "high_elevation_stage_flag",
+      "user_facing_pl": null
+    },
+    {
+      "id": "ultra_long_effort_flag",
+      "expert": "ultra",
+      "priority": 40,
+      "severity": "info",
+      "name": "Długi wysiłek ciągły",
+      "message_key": "long_effort_central_fatigue_info",
+      "user_facing_pl": null
+    },
+    {
+      "id": "rs_power_decay_info",
+      "expert": "race_strategy",
+      "priority": 35,
+      "severity": "info",
+      "name": "Spadek względnej intensywności w długim etapie",
+      "message_key": "effort_decay_info",
+      "user_facing_pl": "Na długim etapie model zakłada spadek względnej intensywności (współczynnik końcowy ok. {power_factor_end}, średni {power_factor_mean}). Zapotrzebowanie CHO/płynów jest lekko skorygowane — nie startuj „na maksa”."
+    },
+    {
+      "id": "nut_gi_risk_band_present",
+      "expert": "nutrition",
+      "priority": 30,
+      "severity": "info",
+      "name": "Dostępne pasmo ryzyka GI z modelu",
+      "message_key": "gi_risk_band",
+      "user_facing_pl": null
+    }
+  ]
+}

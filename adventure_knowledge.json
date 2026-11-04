@@ -1,0 +1,5091 @@
+{
+  "meta": {
+    "system_name": "RideMore Expert System Knowledge Base",
+    "schema_version": "1.0.0-alpha",
+    "knowledge_version": "0.9.1-research",
+    "created": "2026-11-04",
+    "updated": "2026-11-04",
+    "language": "pl-en",
+    "scope": "Adventure cycling, bikepacking, ultra-cycling, touring, gravel, MTB expedition planning and risk assessment for RideMore.bike planner integration",
+    "min_php_engine_version": "8.1",
+    "completeness_status": "unified_tree_models_rules_layout",
+    "change_history": [
+      {
+        "version": "0.1.0-research",
+        "date": "2026-11-04",
+        "description": "Initial research-backed foundation: sources registry (ACSM/ISSN/Jeukendrup/sleep ultra), core definitions, user_profile_schema skeleton, experts skeleton, sample declarative rules and calculations for nutrition/hydration/sleep based on verified sources. Full expert rule catalogs, dependency graph, conflict model, emergency scenarios and validation suite marked for iterative completion."
+      },
+      {
+        "version": "0.2.0-research",
+        "date": "2026-11-04",
+        "description": "Expanded equipment (tire pressure individualization, repair kit, lights, luggage mass), adventure (first multi-day, supply contingency, bailouts), race_strategy (time margin, safety over finish). Added emergency scenarios and luggage time proxy calculation. New practical sources for pressure and weight."
+      },
+      {
+        "version": "0.3.0-research",
+        "date": "2026-11-04",
+        "description": "Expanded logistics (stage vs experience, elevation flag, unpaved surface, POI hours) and ultra (central fatigue, positive pacing, sleep debt RPE). Added fatigue sources (Thomas 2015, Millet 2018). More emergency scenarios and elevation time proxy calculation."
+      },
+      {
+        "version": "0.4.0-research",
+        "date": "2026-11-04",
+        "description": "Major expansion of Race Strategy: brevet time limits (ACP/RUSA), intermediate controls advisory, circadian sleep placement, chunking, early pacing risk, abandon criteria, sleep as strategy, missing data handling. Added time_margin calculation and approaching_time_cut emergency. New operational and practical sources."
+      },
+      {
+        "version": "0.5.0-research",
+        "date": "2026-11-04",
+        "description": "Formal conflict_model with hierarchy, conflict types, resolution rules and blocking cases. Expanded validation with static checks, 8 logical test cases, and parameter_verification against collected sources. All key numeric bands re-checked vs ACSM, Jeukendrup, Thomas, Millet, Race Across France, ACP."
+      },
+      {
+        "version": "0.5.1-research",
+        "date": "2026-11-04",
+        "description": "Structural response to review: data_dictionary + missing profile fields (body_mass_kg, planned_sleep_h_per_24, gi_tolerance); threshold_taxonomy and annotations on key rules; multi-dimensional confidence_model; condition_format unification notes; calculation non-overlap statements; two nutrition rules (GI gate, during vs total energy); path consistency fix for stage.planned_distance_km."
+      },
+      {
+        "version": "0.5.2-research",
+        "date": "2026-11-04",
+        "description": "Nutrition GI handling made probabilistic: hard gate replaced by relative risk model gi_risk_vs_cho_rate with tunable parameters. High CHO rates surface soft risk bands; parameterization hidden under model; rider sensation remains primary. Aligns with practical reality that fueling is feel-based."
+      },
+      {
+        "version": "0.5.3-research",
+        "date": "2026-11-04",
+        "description": "Fix log_elevation_heavy_stage to use stage.planned_distance_km; tighten log_poi_opening_hours_unknown to require poi context. Test harness added."
+      },
+      {
+        "version": "0.6.0-research",
+        "date": "2026-11-04",
+        "description": "Operational hydration_carry_plan and nutrition_pack_plan models + calculations; rules that fire with quantitative params and clear when plan.satisfied; user_facing templates with placeholders; ACSM-aligned default 0.4-0.8 L/h operational start, CHO mid-bands."
+      },
+      {
+        "version": "0.6.1-research",
+        "date": "2026-11-04",
+        "description": "nutrition_pack_plan: user.gel_cho_g (and bar/banana CHO) as first-class inputs; defaults only fallback; pack_cho uses actual gel grams; templates include gel_cho_g."
+      },
+      {
+        "version": "0.7.0-research",
+        "date": "2026-11-04",
+        "description": "Architecture: shared stage_demand foundation; all models under models{}; gi_risk as probabilistic; nutrition unknown-pack buffer mode (~4h start CHO); experts remain rule namespaces not replaced by models; climb_segments contract."
+      },
+      {
+        "version": "0.7.1-research",
+        "date": "2026-11-04",
+        "description": "Progressive decision tree spine (decision_tree.json); early POI suppression by start-stock coverage; trip.horizon and lodging paths in data_dictionary."
+      },
+      {
+        "version": "0.8.0-research",
+        "date": "2026-11-04",
+        "description": "Unified layout: decision_tree + parameter_catalog embedded; phase→model→expert binding; stage_demand primary; old time/CHO calcs deprecated; engine_contract walk defined; single source of truth adventure_knowledge.json"
+      },
+      {
+        "version": "0.8.1-research",
+        "date": "2026-11-04",
+        "description": "Bilingual pl/en labels: decision_tree phases, models, rules name/explanation, recommendation templates, parameter groups, severity; i18n contract for PHP locale resolution."
+      },
+      {
+        "version": "0.9.0-research",
+        "date": "2026-11-04",
+        "description": "Cleanup: models sole numeric layer; thin plan-trigger rules only; remove duplicate CHO/hydration essay rules and alias model namespaces; clear architecture separation."
+      },
+      {
+        "version": "0.9.1-research",
+        "date": "2026-11-04",
+        "description": "Explicit formulas in models; effort_decay (power/CHO/fluid over time); time_margin model; thin ultra/race_strategy triggers; PHP formula_dsl; logistics elevation uses effort_factor."
+      }
+    ],
+    "notes": "Quality and source traceability prioritized over volume. Arbitrary thresholds avoided. Missing data handled via insufficient_data / user_input_required. Safety hierarchy enforced in conflict model (to be expanded)."
+  },
+  "core": {
+    "units": {
+      "distance": "km",
+      "elevation": "m",
+      "speed": "km/h",
+      "time": "h|min",
+      "mass": "kg",
+      "energy": "kcal|kJ",
+      "fluid": "ml|l",
+      "temperature": "°C",
+      "pressure_tire": "bar|psi"
+    },
+    "definitions": {
+      "distance": "Total route length in km derived from GPX or planner.",
+      "elevation_gain": "Cumulative positive elevation change in m.",
+      "surface_profile": "Proportion or sequence of surface types (paved, gravel, singletrack, etc.).",
+      "ride_time": "Estimated moving time.",
+      "total_time": "Ride time + stops + sleep + contingency.",
+      "intensity": "Relative effort (easy / moderate / hard / threshold) or power/HR zones when available; otherwise proxy from speed vs typical user speed and elevation.",
+      "fatigue": "Accumulated load and recovery debt; not a single number without sufficient inputs.",
+      "self_sufficiency": "Degree to which rider can operate without external support (food, water, repair, lodging).",
+      "risk": "Composite of probability and severity of adverse events (mechanical, physiological, environmental, logistical).",
+      "feasibility": "Whether plan is achievable given user constraints, logistics and safety margins.",
+      "safety_margin": "Buffer in time, energy, fluid, equipment or route alternatives."
+    },
+    "priority_hierarchy": [
+      "1_human_safety",
+      "2_user_and_event_constraints",
+      "3_physical_and_logistical_feasibility",
+      "4_main_trip_objective",
+      "5_comfort",
+      "6_time_and_cost_optimization"
+    ],
+    "unknown_handling": "Never invent numeric values. Return insufficient_data or user_input_required with list of missing fields and which calculations/rules are blocked."
+  },
+  "user_profile_schema": {
+    "description": "Shared schema used by all experts. Fields may be unknown; absence is not zero.",
+    "fields": {
+      "experience_level": {
+        "type": "enum",
+        "values": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "elite"
+        ],
+        "required": false,
+        "unknown_allowed": true
+      },
+      "annual_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "typical_distance_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false
+      },
+      "longest_ride_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false
+      },
+      "multi_day_experience": {
+        "type": "boolean|enum",
+        "values": [
+          true,
+          false,
+          "limited"
+        ],
+        "required": false,
+        "unknown_allowed": true
+      },
+      "ultra_experience": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "bikepacking_experience": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "night_riding_experience": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "typical_speed_kmh": {
+        "type": "number",
+        "unit": "km/h",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "preferred_effort": {
+        "type": "enum",
+        "values": [
+          "easy",
+          "moderate",
+          "hard"
+        ],
+        "required": false
+      },
+      "climbing_experience": {
+        "type": "enum",
+        "values": [
+          "low",
+          "moderate",
+          "high"
+        ],
+        "required": false
+      },
+      "unpaved_experience": {
+        "type": "enum",
+        "values": [
+          "none",
+          "limited",
+          "regular"
+        ],
+        "required": false
+      },
+      "preferred_stage_length_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false
+      },
+      "bike_type": {
+        "type": "enum",
+        "values": [
+          "road",
+          "gravel",
+          "mtb",
+          "touring",
+          "hybrid",
+          "other"
+        ],
+        "required": false,
+        "unknown_allowed": true
+      },
+      "tire_width_mm": {
+        "type": "number",
+        "unit": "mm",
+        "required": false
+      },
+      "bike_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "luggage_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "lodging_preference": {
+        "type": "enum",
+        "values": [
+          "hotel_pension",
+          "camping",
+          "bivy",
+          "mixed",
+          "none"
+        ],
+        "required": false
+      },
+      "nutrition_preference": {
+        "type": "enum",
+        "values": [
+          "gels",
+          "mixed",
+          "real_food",
+          "unknown"
+        ],
+        "required": false
+      },
+      "hydration_strategy_known": {
+        "type": "boolean",
+        "required": false
+      },
+      "night_riding_tolerance": {
+        "type": "enum",
+        "values": [
+          "none",
+          "limited",
+          "high"
+        ],
+        "required": false
+      },
+      "self_sufficiency_preference": {
+        "type": "enum",
+        "values": [
+          "supported",
+          "semi",
+          "full"
+        ],
+        "required": false
+      },
+      "risk_tolerance": {
+        "type": "enum",
+        "values": [
+          "low",
+          "moderate",
+          "high"
+        ],
+        "required": false
+      },
+      "comfort_preference": {
+        "type": "enum",
+        "values": [
+          "high",
+          "moderate",
+          "minimal"
+        ],
+        "required": false
+      },
+      "body_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Body mass; required for some relative nutrition/rehydration calculations"
+      },
+      "planned_sleep_h_per_24": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Planned or expected average sleep hours per 24 h during multi-day/ultra event"
+      },
+      "gi_tolerance_high_cho": {
+        "type": "enum",
+        "values": [
+          "unknown",
+          "low",
+          "moderate",
+          "trained"
+        ],
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Optional self-assessment of prior tolerance to high CHO rates during long efforts. Used only to shift relative risk bands; never as a hard eligibility gate. Unknown is a valid and common state."
+      },
+      "water_carry_capacity_l": {
+        "type": "number",
+        "unit": "l",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "gel_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "g CHO in one gel the rider uses"
+      },
+      "bar_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true
+      },
+      "planned_pack": {
+        "type": "object",
+        "required": false,
+        "description": "gels, bananas, bars, other_cho_g counts"
+      }
+    }
+  },
+  "profiles": {
+    "touring": {
+      "id": "touring",
+      "name": "Touring / turystyka rowerowa",
+      "priorities": [
+        "comfort",
+        "logistics",
+        "safety"
+      ],
+      "dominant_risks": [
+        "logistics",
+        "weather"
+      ],
+      "key_experts": [
+        "logistics",
+        "adventure",
+        "equipment",
+        "nutrition"
+      ]
+    },
+    "bikepacking": {
+      "id": "bikepacking",
+      "name": "Bikepacking",
+      "priorities": [
+        "self_sufficiency",
+        "equipment",
+        "risk"
+      ],
+      "dominant_risks": [
+        "mechanical",
+        "supply",
+        "weather",
+        "navigation"
+      ],
+      "key_experts": [
+        "adventure",
+        "equipment",
+        "logistics",
+        "nutrition"
+      ]
+    },
+    "ultra": {
+      "id": "ultra",
+      "name": "Ultra / ultracycling",
+      "priorities": [
+        "pacing",
+        "fatigue_management",
+        "time_limit"
+      ],
+      "dominant_risks": [
+        "sleep_deprivation",
+        "nutrition_failure",
+        "cognitive",
+        "mechanical"
+      ],
+      "key_experts": [
+        "ultra",
+        "nutrition",
+        "race_strategy",
+        "adventure"
+      ]
+    },
+    "gravel_adventure": {
+      "id": "gravel_adventure",
+      "name": "Gravel adventure",
+      "priorities": [
+        "surface",
+        "equipment",
+        "logistics"
+      ],
+      "dominant_risks": [
+        "surface",
+        "mechanical",
+        "supply"
+      ],
+      "key_experts": [
+        "equipment",
+        "logistics",
+        "adventure"
+      ]
+    },
+    "mtb_adventure": {
+      "id": "mtb_adventure",
+      "name": "MTB adventure",
+      "priorities": [
+        "technical",
+        "equipment",
+        "risk"
+      ],
+      "dominant_risks": [
+        "injury",
+        "mechanical",
+        "remoteness"
+      ],
+      "key_experts": [
+        "equipment",
+        "adventure",
+        "logistics"
+      ]
+    },
+    "road_expedition": {
+      "id": "road_expedition",
+      "name": "Road cycling expedition",
+      "priorities": [
+        "distance",
+        "nutrition",
+        "logistics"
+      ],
+      "dominant_risks": [
+        "traffic",
+        "nutrition",
+        "weather"
+      ],
+      "key_experts": [
+        "ultra",
+        "nutrition",
+        "logistics"
+      ]
+    },
+    "brevet": {
+      "id": "brevet",
+      "name": "Brevet",
+      "priorities": [
+        "time_limit",
+        "pacing",
+        "checkpoints"
+      ],
+      "dominant_risks": [
+        "time_cut",
+        "sleep",
+        "nutrition"
+      ],
+      "key_experts": [
+        "race_strategy",
+        "ultra",
+        "nutrition"
+      ]
+    },
+    "stage_race": {
+      "id": "stage_race",
+      "name": "Wyścig etapowy",
+      "priorities": [
+        "recovery",
+        "pacing",
+        "nutrition"
+      ],
+      "dominant_risks": [
+        "cumulative_fatigue",
+        "nutrition"
+      ],
+      "key_experts": [
+        "race_strategy",
+        "nutrition",
+        "ultra"
+      ]
+    },
+    "exploratory": {
+      "id": "exploratory",
+      "name": "Wyprawa eksploracyjna",
+      "priorities": [
+        "risk_management",
+        "alternatives",
+        "self_sufficiency"
+      ],
+      "dominant_risks": [
+        "unknown_conditions",
+        "supply",
+        "navigation"
+      ],
+      "key_experts": [
+        "adventure",
+        "logistics",
+        "equipment"
+      ]
+    },
+    "recreational": {
+      "id": "recreational",
+      "name": "Wyprawa rekreacyjna",
+      "priorities": [
+        "comfort",
+        "enjoyment",
+        "safety"
+      ],
+      "dominant_risks": [
+        "overambitious_stages",
+        "logistics"
+      ],
+      "key_experts": [
+        "logistics",
+        "nutrition",
+        "equipment"
+      ]
+    }
+  },
+  "experts": {
+    "ultra": {
+      "id": "ultra",
+      "name": "Ultra Physiology & Pacing",
+      "description": "Long-duration effort physiology, fatigue, pacing, multi-hour/day management. Practical insights separated from evidence.",
+      "scope": [
+        "fatigue",
+        "pacing",
+        "sleep",
+        "multi_day_load",
+        "crisis_management"
+      ],
+      "inputs": [
+        "user.experience_level",
+        "user.ultra_experience",
+        "route.distance_km",
+        "route.elevation_gain_m",
+        "ride.estimated_time_hours",
+        "user.typical_speed_kmh"
+      ],
+      "outputs": [
+        "fatigue_assessment",
+        "pacing_recommendation",
+        "sleep_strategy_flags",
+        "risk_flags"
+      ],
+      "depends_on": [
+        "logistics"
+      ],
+      "consumers": [
+        "nutrition",
+        "race_strategy",
+        "adventure"
+      ],
+      "rule_groups": [
+        "pacing",
+        "sleep",
+        "fatigue"
+      ],
+      "calculation_groups": [
+        "ride_time",
+        "load_proxy"
+      ],
+      "safety_constraints": [
+        "never_recommend_riding_while_severely_drowsy",
+        "never_override_medical_red_flags"
+      ],
+      "source_requirements": [
+        "src_sleep_ultra_systematic_2026",
+        "src_race_across_france_sleep_2026",
+        "src_raam_pacing_2016"
+      ],
+      "computes_numbers": false,
+      "uses_models": true
+    },
+    "adventure": {
+      "id": "adventure",
+      "name": "Adventure & Self-Sufficiency",
+      "description": "Self-sufficiency, contingency, resilience to change, emergency planning.",
+      "scope": [
+        "self_sufficiency",
+        "contingency",
+        "lodging",
+        "risk"
+      ],
+      "inputs": [
+        "user.bikepacking_experience",
+        "user.self_sufficiency_preference",
+        "route.remoteness_proxy",
+        "logistics.supply_gaps"
+      ],
+      "outputs": [
+        "self_sufficiency_score",
+        "contingency_recommendations",
+        "risk_warnings"
+      ],
+      "depends_on": [
+        "logistics",
+        "equipment"
+      ],
+      "consumers": [
+        "race_strategy"
+      ],
+      "rule_groups": [
+        "supply",
+        "contingency",
+        "lodging"
+      ],
+      "calculation_groups": [],
+      "safety_constraints": [
+        "prioritize_exit_options"
+      ],
+      "source_requirements": [
+        "src_bikepacking_practical_mec",
+        "src_bikepacking_practical_ridefar"
+      ],
+      "computes_numbers": false,
+      "uses_models": true
+    },
+    "equipment": {
+      "id": "equipment",
+      "name": "Equipment & Bike Fit to Route",
+      "description": "Bike type, tires, gearing, repair kit, lighting, luggage suitability.",
+      "scope": [
+        "bike_match",
+        "tires",
+        "repair",
+        "lighting",
+        "luggage"
+      ],
+      "inputs": [
+        "user.bike_type",
+        "user.tire_width_mm",
+        "route.surface_profile",
+        "route.elevation_gain_m",
+        "user.luggage_mass_kg"
+      ],
+      "outputs": [
+        "equipment_adequacy",
+        "repair_kit_recommendations",
+        "risk_flags"
+      ],
+      "depends_on": [
+        "logistics"
+      ],
+      "consumers": [
+        "adventure",
+        "ultra"
+      ],
+      "rule_groups": [
+        "tires",
+        "repair",
+        "lighting"
+      ],
+      "calculation_groups": [
+        "luggage_mass_impact"
+      ],
+      "safety_constraints": [
+        "night_riding_requires_adequate_lights"
+      ],
+      "source_requirements": [
+        "src_bikepacking_practical_mec"
+      ],
+      "computes_numbers": false,
+      "uses_models": true
+    },
+    "nutrition": {
+      "id": "nutrition",
+      "name": "Sports Nutrition",
+      "description": "Energy, CHO, hydration, electrolytes, multi-day feeding. Individualization required. No medical diagnosis.",
+      "scope": [
+        "energy",
+        "cho",
+        "hydration",
+        "electrolytes",
+        "gi_tolerance",
+        "recovery"
+      ],
+      "inputs": [
+        "ride.estimated_time_hours",
+        "user.body_mass_kg",
+        "user.experience_level",
+        "environment.temperature_c",
+        "logistics.food_water_availability"
+      ],
+      "outputs": [
+        "cho_rate_guidance",
+        "fluid_guidance",
+        "refuel_stop_recommendations",
+        "insufficient_data_flags"
+      ],
+      "depends_on": [
+        "logistics",
+        "ultra"
+      ],
+      "consumers": [
+        "race_strategy",
+        "adventure"
+      ],
+      "rule_groups": [
+        "cho_during",
+        "hydration",
+        "multi_day"
+      ],
+      "calculation_groups": [
+        "energy_estimate_proxy",
+        "cho_target_range"
+      ],
+      "safety_constraints": [
+        "no_medical_diagnosis",
+        "individual_gi_tolerance_critical",
+        "hyponatremia_risk_awareness"
+      ],
+      "source_requirements": [
+        "src_acsm_nutrition_2016",
+        "src_acsm_fluid_2007",
+        "src_jeukendrup_mtc_2010",
+        "src_issn_nutrient_timing_2017"
+      ],
+      "computes_numbers": false,
+      "uses_models": true
+    },
+    "logistics": {
+      "id": "logistics",
+      "name": "Route Logistics & Infrastructure",
+      "description": "GPX analysis support, stage division, POI quality, supply gaps, opening hours awareness.",
+      "scope": [
+        "stage_planning",
+        "poi",
+        "supply",
+        "surface",
+        "elevation"
+      ],
+      "inputs": [
+        "route.gpx_summary",
+        "route.distance_km",
+        "route.elevation_gain_m",
+        "route.surface_profile",
+        "poi_list"
+      ],
+      "outputs": [
+        "stage_suggestions",
+        "supply_gap_flags",
+        "poi_confidence",
+        "time_estimates"
+      ],
+      "depends_on": [],
+      "consumers": [
+        "all"
+      ],
+      "rule_groups": [
+        "supply_gap",
+        "poi_quality",
+        "stage_length"
+      ],
+      "calculation_groups": [
+        "ride_time_estimation",
+        "elevation_impact"
+      ],
+      "safety_constraints": [
+        "never_assume_unverified_poi_is_open"
+      ],
+      "source_requirements": [],
+      "computes_numbers": false,
+      "uses_models": true
+    },
+    "race_strategy": {
+      "id": "race_strategy",
+      "name": "Race / Event Strategy",
+      "description": "Time limits, schedule, sleep/rest allocation, finish strategy, alternatives. Never recommend finishing at any cost.",
+      "scope": [
+        "time_limit",
+        "schedule",
+        "sleep_allocation",
+        "finish_strategy"
+      ],
+      "inputs": [
+        "event.time_limit_hours",
+        "ultra.fatigue_assessment",
+        "nutrition.status",
+        "logistics.stage_plan",
+        "adventure.risks"
+      ],
+      "outputs": [
+        "schedule_recommendation",
+        "sleep_allocation",
+        "time_margin",
+        "alternative_plans"
+      ],
+      "depends_on": [
+        "ultra",
+        "nutrition",
+        "logistics",
+        "adventure",
+        "equipment"
+      ],
+      "consumers": [
+        "global"
+      ],
+      "rule_groups": [
+        "time_margin",
+        "sleep_vs_progress",
+        "abandon_criteria"
+      ],
+      "calculation_groups": [
+        "time_budget"
+      ],
+      "safety_constraints": [
+        "safety_over_finish"
+      ],
+      "source_requirements": [
+        "src_raam_pacing_2016",
+        "src_race_across_france_sleep_2026"
+      ],
+      "computes_numbers": false,
+      "uses_models": true
+    }
+  },
+  "rules": {
+    "nutrition": [
+      {
+        "id": "nut_missing_body_mass",
+        "name": {
+          "pl": "Brak masy ciała — część wyliczeń niedostępna",
+          "en": "Cannot compute precise energy or fluid targets without body mass"
+        },
+        "description": {
+          "pl": "Brak user.body_mass_kg — część ścieżek względnych niedostępna.",
+          "en": "Missing user.body_mass_kg — some relative paths unavailable."
+        },
+        "expert": "nutrition",
+        "enabled": true,
+        "conditions": {
+          "op": "not_exists",
+          "path": "user.body_mass_kg"
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "user_input_required",
+          "recommendation_type": "user_input_required",
+          "message_key": "request_body_mass_for_nutrition",
+          "params": {
+            "blocked": [
+              "precise_energy",
+              "relative_protein"
+            ]
+          }
+        },
+        "priority": 80,
+        "severity": "info",
+        "evidence": "operational",
+        "source_ids": [],
+        "confidence": 1.0,
+        "limitations": "",
+        "explanation": {
+          "en": "Many guidelines express some targets relative to body mass; absolute CHO rates during exercise are often absolute but energy balance and rehydration volumes benefit from mass.",
+          "pl": "Many guidelines express some targets relative to body mass; absolute CHO rates during exercise are often absolute but energy balance and rehydration volumes benefit from mass."
+        },
+        "recommendation_type": "user_input_required",
+        "version": "0.1.0"
+      },
+      {
+        "id": "nut_hydration_carry_insufficient",
+        "name": {
+          "pl": "Plan wody nie pokrywa etapu bez uzupełnienia",
+          "en": "Planned water start does not cover stage need without timely resupply"
+        },
+        "description": {
+          "pl": "Wyzwalacz: plan.hydration.satisfied == false. Liczby z modelu hydration_carry_plan.",
+          "en": "Trigger: plan.hydration.satisfied == false. Numbers from hydration_carry_plan model."
+        },
+        "expert": "nutrition",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "exists",
+              "path": "plan.hydration.satisfied"
+            },
+            {
+              "op": "eq",
+              "path": "plan.hydration.satisfied",
+              "value": false
+            }
+          ]
+        },
+        "required_inputs": [
+          "plan.hydration.satisfied"
+        ],
+        "action": {
+          "type": "plan_action",
+          "recommendation_type": "hydration_plan",
+          "message_key": "hydration_carry_insufficient",
+          "params_from_paths": {
+            "recommended_start_l": "plan.hydration.recommended_start_l",
+            "resupply_needed_by_km": "plan.hydration.resupply_needed_by_km",
+            "stage_need_l": "plan.hydration.stage_need_l",
+            "target_l_per_h": "plan.hydration.target_l_per_h"
+          }
+        },
+        "clears_when": {
+          "op": "eq",
+          "path": "plan.hydration.satisfied",
+          "value": true
+        },
+        "priority": 80,
+        "severity": "warning",
+        "evidence": "operational",
+        "threshold_type": "operational_threshold",
+        "source_ids": [
+          "src_acsm_fluid_2007"
+        ],
+        "confidence": 0.7,
+        "limitations": "Uses operational default rate unless user.sweat_rate_l_per_h provided.",
+        "explanation": {
+          "pl": "Reguła nie liczy litrów — tylko publikuje wynik modelu.",
+          "en": "Rule does not compute litres — only publishes model result."
+        },
+        "recommendation_type": "hydration_plan",
+        "version": "0.6.0"
+      },
+      {
+        "id": "nut_pack_insufficient",
+        "name": {
+          "pl": "Zapas jedzenia nie pokrywa zapotrzebowania CHO etapu",
+          "en": "On-bike nutrition pack does not cover stage CHO need"
+        },
+        "description": {
+          "pl": "Wyzwalacz: plan.nutrition.satisfied == false i mode=pack.",
+          "en": "Trigger: plan.nutrition.satisfied == false and mode=pack."
+        },
+        "expert": "nutrition",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "exists",
+              "path": "plan.nutrition.satisfied"
+            },
+            {
+              "op": "eq",
+              "path": "plan.nutrition.satisfied",
+              "value": false
+            }
+          ]
+        },
+        "required_inputs": [
+          "plan.nutrition.satisfied"
+        ],
+        "action": {
+          "type": "plan_action",
+          "recommendation_type": "nutrition_plan",
+          "message_key": "nutrition_pack_insufficient",
+          "params_from_paths": {
+            "suggested_pack": "plan.nutrition.suggested_pack",
+            "stage_cho_need_g": "plan.nutrition.stage_cho_need_g",
+            "pack_cho_g": "plan.nutrition.pack_cho_g",
+            "gel_cho_g": "plan.nutrition.gel_cho_g_used",
+            "resupply_needed_by_km": "plan.nutrition.resupply_needed_by_km",
+            "feeding_schedule_hint": "plan.nutrition.feeding_schedule_hint"
+          }
+        },
+        "clears_when": {
+          "op": "eq",
+          "path": "plan.nutrition.satisfied",
+          "value": true
+        },
+        "priority": 75,
+        "severity": "warning",
+        "evidence": "operational",
+        "threshold_type": "operational_threshold",
+        "source_ids": [
+          "src_acsm_nutrition_2016",
+          "src_jeukendrup_mtc_2010"
+        ],
+        "confidence": 0.7,
+        "limitations": "Operational CHO mid-band; item sizes are defaults.",
+        "explanation": {
+          "pl": "Reguła nie liczy gramów CHO — wynik nutrition_pack_plan.",
+          "en": "Rule does not compute CHO grams — nutrition_pack_plan result."
+        },
+        "recommendation_type": "nutrition_plan",
+        "version": "0.6.0"
+      },
+      {
+        "id": "nut_cho_buffer_unknown_pack",
+        "name": {
+          "pl": "Brak menu — bufor CHO na start i km uzupełnienia",
+          "en": "Unknown pack — operational CHO start buffer and resupply km"
+        },
+        "description": {
+          "pl": "Wyzwalacz: plan.nutrition.mode == buffer i nie satisfied.",
+          "en": "Trigger: plan.nutrition.mode == buffer and not satisfied."
+        },
+        "expert": "nutrition",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "eq",
+              "path": "plan.nutrition.mode",
+              "value": "buffer"
+            },
+            {
+              "op": "eq",
+              "path": "plan.nutrition.satisfied",
+              "value": false
+            }
+          ]
+        },
+        "action": {
+          "type": "plan_action",
+          "recommendation_type": "nutrition_plan",
+          "message_key": "nutrition_buffer_resupply",
+          "params_from_paths": {
+            "recommended_start_cho_g": "plan.nutrition.recommended_start_cho_g",
+            "stage_cho_need_g": "plan.nutrition.stage_cho_need_g",
+            "resupply_needed_by_km": "plan.nutrition.resupply_needed_by_km",
+            "target_cho_g_per_h": "stage.cho_target_g_per_h_operational"
+          }
+        },
+        "clears_when": {
+          "op": "eq",
+          "path": "plan.nutrition.satisfied",
+          "value": true
+        },
+        "priority": 74,
+        "severity": "recommendation",
+        "evidence": "operational",
+        "threshold_type": "operational_threshold",
+        "source_ids": [
+          "src_acsm_nutrition_2016"
+        ],
+        "confidence": 0.65,
+        "limitations": "Assumes normal fueling rate; not a menu. Refine when user sets planned_pack.",
+        "explanation": {
+          "pl": "Reguła publikuje bufor/resupply z modelu; nie zakłada menu produktów.",
+          "en": "Publishes buffer/resupply from model; does not assume product menu."
+        },
+        "recommendation_type": "nutrition_plan",
+        "version": "0.7.0"
+      },
+      {
+        "id": "nut_gi_risk_band_present",
+        "name": {
+          "pl": "Dostępne pasmo ryzyka GI z modelu",
+          "en": "GI risk band available from model"
+        },
+        "description": {
+          "pl": "Wyzwalacz: istnieje plan.gi.risk_band. Bez ponownego liczenia.",
+          "en": "Trigger: plan.gi.risk_band exists. No recalculation."
+        },
+        "expert": "nutrition",
+        "enabled": true,
+        "conditions": {
+          "op": "exists",
+          "path": "plan.gi.risk_band"
+        },
+        "action": {
+          "type": "info",
+          "recommendation_type": "nutrition",
+          "message_key": "gi_risk_band",
+          "params_from_paths": {
+            "risk_band": "plan.gi.risk_band"
+          }
+        },
+        "priority": 30,
+        "severity": "info",
+        "evidence": "operational",
+        "source_ids": [
+          "src_jeukendrup_mtc_2010"
+        ],
+        "confidence": 0.6,
+        "explanation": {
+          "pl": "Tylko prezentacja wyniku gi_risk_vs_cho_rate.",
+          "en": "Presentation only of gi_risk_vs_cho_rate output."
+        },
+        "version": "0.9.0"
+      }
+    ],
+    "ultra": [
+      {
+        "id": "ultra_sleep_low",
+        "name": {
+          "pl": "Niski planowany sen",
+          "en": "Low planned sleep"
+        },
+        "expert": "ultra",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "exists",
+              "path": "user.planned_sleep_h_per_24"
+            },
+            {
+              "op": "lt",
+              "path": "user.planned_sleep_h_per_24",
+              "value": 5.3
+            }
+          ]
+        },
+        "action": {
+          "type": "risk_warning",
+          "message_key": "sleep_low_warning",
+          "recommendation_type": "risk_warning"
+        },
+        "priority": 70,
+        "severity": "warning",
+        "source_ids": [
+          "src_race_across_france_sleep_2026"
+        ],
+        "threshold_type": "heuristic",
+        "description": {
+          "pl": "Wyzwalacz: sen < 5.3 h/24 (heurystyka z danych RAF).",
+          "en": "Trigger: sleep < 5.3 h/24 (RAF heuristic)."
+        },
+        "explanation": {
+          "pl": "Próg z modelu/źródła snu, nie lokalne liczenie.",
+          "en": "Threshold from sleep source, not local math."
+        },
+        "version": "0.9.1"
+      },
+      {
+        "id": "ultra_long_effort_flag",
+        "name": {
+          "pl": "Długi wysiłek ciągły",
+          "en": "Long continuous effort"
+        },
+        "expert": "ultra",
+        "enabled": true,
+        "conditions": {
+          "op": "gte",
+          "path": "stage.estimated_time_hours",
+          "value": 3
+        },
+        "action": {
+          "type": "info",
+          "message_key": "long_effort_central_fatigue_info",
+          "recommendation_type": "race_strategy"
+        },
+        "priority": 40,
+        "severity": "info",
+        "source_ids": [
+          "src_thomas_fatigue_2015",
+          "src_millet_ultra_cns_2018"
+        ],
+        "description": {
+          "pl": "Wyzwalacz: stage.estimated_time_hours >= 3 (po stage_demand).",
+          "en": "Trigger: time >= 3 h from stage_demand."
+        },
+        "explanation": {
+          "pl": "Informacja o zmęczeniu centralnym; liczby power_factor w effort_decay.",
+          "en": "Central fatigue info; power_factor numbers in effort_decay."
+        },
+        "version": "0.9.1"
+      }
+    ],
+    "logistics": [
+      {
+        "id": "log_unverified_poi_not_assumed",
+        "name": {
+          "pl": "Nie zakładaj dostępności niezweryfikowanego POI",
+          "en": "Do not assume unverified POI is available"
+        },
+        "description": {
+          "en": "Existence of a POI on a map does not confirm current availability or opening hours.",
+          "pl": "Existence of a POI on a map does not confirm current availability or opening hours."
+        },
+        "expert": "logistics",
+        "enabled": true,
+        "conditions": {
+          "or": [
+            {
+              "op": "eq",
+              "path": "poi.verification_status",
+              "value": "unverified"
+            },
+            {
+              "op": "eq",
+              "path": "poi.verification_status",
+              "value": "outdated"
+            }
+          ]
+        },
+        "required_inputs": [
+          "poi.verification_status"
+        ],
+        "action": {
+          "type": "risk_warning",
+          "recommendation_type": "risk_warning",
+          "message_key": "poi_unverified_do_not_rely",
+          "params": {}
+        },
+        "priority": 85,
+        "severity": "warning",
+        "evidence": "operational",
+        "source_ids": [],
+        "confidence": 1.0,
+        "limitations": "",
+        "explanation": {
+          "en": "Operational principle of the system: map presence ≠ confirmed availability. Critical for water and food on remote sections.",
+          "pl": "Punkt na mapie bez weryfikacji nie jest pewnym zaopatrzeniem."
+        },
+        "recommendation_type": "risk_warning",
+        "version": "0.1.0"
+      },
+      {
+        "id": "log_stage_length_vs_experience",
+        "name": {
+          "pl": "Długość etapu względem typowego dystansu użytkownika",
+          "en": "Stage length should respect user experience and multi-day status"
+        },
+        "description": {
+          "en": "For users without multi-day experience or with low typical distance, long stages increase risk of cascade fatigue and logistics failure.",
+          "pl": "For users without multi-day experience or with low typical distance, long stages increase risk of cascade fatigue and logistics failure."
+        },
+        "expert": "logistics",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "exists",
+              "path": "stage.planned_distance_km"
+            },
+            {
+              "op": "exists",
+              "path": "user.typical_distance_km"
+            },
+            {
+              "op": "gt",
+              "path": "stage.planned_distance_km",
+              "value_path": "user.typical_distance_km"
+            }
+          ]
+        },
+        "required_inputs": [
+          "stage.planned_distance_km",
+          "user.typical_distance_km"
+        ],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "stage_adjustment",
+          "message_key": "stage_exceeds_typical_distance",
+          "params": {}
+        },
+        "priority": 60,
+        "severity": "recommendation",
+        "evidence": "expert_practice",
+        "source_ids": [],
+        "confidence": 0.65,
+        "limitations": "Typical distance is only a proxy; fitness, surface and elevation matter more. Not a hard block.",
+        "explanation": {
+          "en": "Practical risk management: stages substantially longer than recent typical rides raise uncertainty, especially on first multi-day trips.",
+          "pl": "Practical risk management: stages substantially longer than recent typical rides raise uncertainty, especially on first multi-day trips."
+        },
+        "recommendation_type": "stage_adjustment",
+        "version": "0.2.0"
+      },
+      {
+        "id": "log_elevation_heavy_stage",
+        "name": {
+          "pl": "Wysokie przewyższenie — uwzględnij regenerację i tempo",
+          "en": "High elevation gain stages require explicit recovery and pacing consideration"
+        },
+        "description": {
+          "pl": "Wyzwalacz: relative_effort_factor z stage_demand > 1.15 (zamiast gołego progu metrów).",
+          "en": "Trigger: stage_demand relative_effort_factor > 1.15 (not raw metres alone)."
+        },
+        "expert": "logistics",
+        "enabled": true,
+        "conditions": {
+          "op": "gt",
+          "path": "stage.relative_effort_factor",
+          "value": 1.15
+        },
+        "required_inputs": [
+          "stage.elevation_gain_m",
+          "stage.planned_distance_km"
+        ],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "stage_adjustment",
+          "message_key": "high_elevation_stage_flag",
+          "params": {
+            "threshold_m": 1500
+          }
+        },
+        "priority": 55,
+        "severity": "info",
+        "evidence": "operational",
+        "source_ids": [],
+        "confidence": 0.6,
+        "limitations": "1500 m is an illustrative operational flag, not a physiological threshold. Intensity and rider strength matter more than absolute metres.",
+        "explanation": {
+          "en": "High elevation days accumulate peripheral load; subsequent recovery or reduced volume is commonly required in multi-day planning.",
+          "pl": "High elevation days accumulate peripheral load; subsequent recovery or reduced volume is commonly required in multi-day planning."
+        },
+        "recommendation_type": "stage_adjustment",
+        "version": "0.5.3",
+        "threshold_type": "operational_threshold",
+        "threshold_notes": "1500 m is an illustrative operational flag only; must be interpreted with experience, bike, luggage and intensity"
+      },
+      {
+        "id": "log_surface_unpaved_factor",
+        "name": {
+          "pl": "Dużo nieasfaltu — korekta tempa i ryzyka mechanicznego",
+          "en": "Significant unpaved surface slows expected speed and increases mechanical risk"
+        },
+        "description": {
+          "en": "When surface profile includes substantial gravel/singletrack, ride time estimates and equipment demands change; do not use pure paved typical speed.",
+          "pl": "When surface profile includes substantial gravel/singletrack, ride time estimates and equipment demands change; do not use pure paved typical speed."
+        },
+        "expert": "logistics",
+        "enabled": true,
+        "conditions": {
+          "or": [
+            {
+              "op": "gt",
+              "path": "route.unpaved_fraction",
+              "value": 0.3
+            },
+            {
+              "op": "in",
+              "path": "route.dominant_surface",
+              "value": [
+                "gravel",
+                "singletrack",
+                "dirt"
+              ]
+            }
+          ]
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "time_adjustment",
+          "message_key": "adjust_speed_for_unpaved",
+          "params": {}
+        },
+        "priority": 50,
+        "severity": "recommendation",
+        "evidence": "operational",
+        "source_ids": [],
+        "confidence": 0.7,
+        "limitations": "Exact slowdown factor is highly surface- and tire-dependent; system should prefer user typical off-road speed when available.",
+        "explanation": {
+          "en": "Unpaved surfaces increase rolling resistance, technical demand and puncture risk; pure road speed assumptions are invalid.",
+          "pl": "Unpaved surfaces increase rolling resistance, technical demand and puncture risk; pure road speed assumptions are invalid."
+        },
+        "recommendation_type": "time_adjustment",
+        "version": "0.2.0"
+      },
+      {
+        "id": "log_poi_opening_hours_unknown",
+        "name": {
+          "pl": "Nieznane godziny otwarcia obniżają wiarygodność POI",
+          "en": "Unknown opening hours reduce POI reliability"
+        },
+        "description": {
+          "en": "If opening hours are unknown or outdated, treat the POI as lower confidence for critical resupply.",
+          "pl": "If opening hours are unknown or outdated, treat the POI as lower confidence for critical resupply."
+        },
+        "expert": "logistics",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "exists",
+              "path": "poi"
+            },
+            {
+              "or": [
+                {
+                  "op": "not_exists",
+                  "path": "poi.opening_hours"
+                },
+                {
+                  "op": "eq",
+                  "path": "poi.hours_confidence",
+                  "value": "low"
+                }
+              ]
+            }
+          ]
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "risk_warning",
+          "recommendation_type": "risk_warning",
+          "message_key": "poi_hours_unknown",
+          "params": {}
+        },
+        "priority": 65,
+        "severity": "warning",
+        "evidence": "operational",
+        "source_ids": [],
+        "confidence": 0.9,
+        "limitations": " Fires only when a POI is in context, not on empty scenario.",
+        "explanation": {
+          "en": "Critical for water/food planning: map presence + unknown hours ≠ reliable access.",
+          "pl": "Critical for water/food planning: map presence + unknown hours ≠ reliable access."
+        },
+        "recommendation_type": "risk_warning",
+        "version": "0.5.3"
+      }
+    ],
+    "global": [
+      {
+        "id": "global_safety_first",
+        "name": {
+          "pl": "Priorytet bezpieczeństwa globalnego",
+          "en": "Safety hierarchy overrides other objectives"
+        },
+        "description": {
+          "en": "Any recommendation that increases serious risk to the rider is blocked or escalated regardless of time or finish goals.",
+          "pl": "Any recommendation that increases serious risk to the rider is blocked or escalated regardless of time or finish goals."
+        },
+        "expert": "global",
+        "enabled": true,
+        "conditions": {
+          "op": "eq",
+          "path": "conflict.involves_safety",
+          "value": true
+        },
+        "required_inputs": [
+          "conflict.involves_safety"
+        ],
+        "action": {
+          "type": "block_or_escalate",
+          "recommendation_type": "risk_warning",
+          "message_key": "safety_overrides",
+          "params": {}
+        },
+        "priority": 100,
+        "severity": "critical",
+        "evidence": "expert_practice",
+        "source_ids": [],
+        "confidence": 1.0,
+        "limitations": "",
+        "explanation": {
+          "en": "Core hierarchy: human safety is the highest priority.",
+          "pl": "Core hierarchy: human safety is the highest priority."
+        },
+        "recommendation_type": "risk_warning",
+        "version": "0.1.0"
+      }
+    ],
+    "adventure": [
+      {
+        "id": "adv_first_bikepacking_uncertainty",
+        "name": {
+          "pl": "Pierwszy multi-day / bikepacking — wyższa niepewność",
+          "en": "First multi-day / first bikepacking elevates uncertainty"
+        },
+        "description": {
+          "en": "Lack of multi-day or bikepacking experience increases uncertainty around load, sleep, logistics and self-sufficiency; stages should be conservative.",
+          "pl": "Lack of multi-day or bikepacking experience increases uncertainty around load, sleep, logistics and self-sufficiency; stages should be conservative."
+        },
+        "expert": "adventure",
+        "enabled": true,
+        "conditions": {
+          "or": [
+            {
+              "op": "eq",
+              "path": "user.multi_day_experience",
+              "value": false
+            },
+            {
+              "op": "eq",
+              "path": "user.bikepacking_experience",
+              "value": false
+            },
+            {
+              "op": "eq",
+              "path": "user.multi_day_experience",
+              "value": "limited"
+            }
+          ]
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "stage_adjustment",
+          "message_key": "conservative_stages_first_multi_day",
+          "params": {
+            "reason": "experience_gap"
+          }
+        },
+        "priority": 65,
+        "severity": "recommendation",
+        "evidence": "expert_practice",
+        "source_ids": [],
+        "confidence": 0.7,
+        "limitations": "Experience is multi-dimensional; some riders adapt quickly.",
+        "explanation": {
+          "en": "Practical principle: first loaded multi-day trips commonly reveal unexpected fatigue, packing issues and logistics friction. Conservative daily distances and early stops reduce risk of cascade failure.",
+          "pl": "Practical principle: first loaded multi-day trips commonly reveal unexpected fatigue, packing issues and logistics friction. Conservative daily distances and early stops reduce risk of cascade failure."
+        },
+        "recommendation_type": "stage_adjustment",
+        "version": "0.1.0"
+      },
+      {
+        "id": "adv_supply_gap_contingency",
+        "name": {
+          "pl": "Duża luka zaopatrzenia wymaga planu awaryjnego",
+          "en": "Long verified supply gaps require contingency"
+        },
+        "description": {
+          "en": "When logistics identifies a long gap without confirmed water or food, adventure module requires explicit contingency (extra carry, alternative route, or stage shorten).",
+          "pl": "When logistics identifies a long gap without confirmed water or food, adventure module requires explicit contingency (extra carry, alternative route, or stage shorten)."
+        },
+        "expert": "adventure",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "exists",
+              "path": "logistics.supply_gap_km"
+            },
+            {
+              "op": "gt",
+              "path": "logistics.supply_gap_km",
+              "value": 40
+            }
+          ]
+        },
+        "required_inputs": [
+          "logistics.supply_gap_km"
+        ],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "emergency_plan",
+          "message_key": "require_supply_contingency",
+          "params": {}
+        },
+        "priority": 80,
+        "severity": "warning",
+        "evidence": "operational",
+        "source_ids": [],
+        "confidence": 0.8,
+        "limitations": "Threshold of 40 km is illustrative; actual risk depends on temperature, carry capacity and individual needs. Exact numeric threshold left for engine configuration.",
+        "explanation": {
+          "en": "Self-sufficiency principle: large gaps without verified resupply are a primary risk vector in adventure and exploratory profiles.",
+          "pl": "Długa luka bez pewnego zaopatrzenia wymaga planu awaryjnego (woda/jedzenie/ewakuacja)."
+        },
+        "recommendation_type": "emergency_plan",
+        "version": "0.1.0",
+        "threshold_type": "operational_threshold",
+        "threshold_notes": "40 km example is illustrative; real risk = f(carry capacity, temperature, individual needs, surface)"
+      },
+      {
+        "id": "adv_exit_options",
+        "name": {
+          "pl": "Remote sections should have identified exit or bailout options",
+          "en": "Remote sections should have identified exit or bailout options"
+        },
+        "description": {
+          "en": "For high self-sufficiency or exploratory profiles, plan should note realistic exit points (transport, accommodation, road access).",
+          "pl": "For high self-sufficiency or exploratory profiles, plan should note realistic exit points (transport, accommodation, road access)."
+        },
+        "expert": "adventure",
+        "enabled": true,
+        "conditions": {
+          "or": [
+            {
+              "op": "eq",
+              "path": "profile.type",
+              "value": "exploratory"
+            },
+            {
+              "op": "eq",
+              "path": "user.self_sufficiency_preference",
+              "value": "full"
+            }
+          ]
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "alternative_route",
+          "message_key": "identify_bailout_points",
+          "params": {}
+        },
+        "priority": 55,
+        "severity": "recommendation",
+        "evidence": "expert_practice",
+        "source_ids": [],
+        "confidence": 0.7,
+        "limitations": "",
+        "explanation": {
+          "en": "Risk management: ability to abandon or shorten without catastrophic consequence is core to safe adventure travel.",
+          "pl": "Risk management: ability to abandon or shorten without catastrophic consequence is core to safe adventure travel."
+        },
+        "recommendation_type": "alternative_route",
+        "version": "0.1.0"
+      }
+    ],
+    "equipment": [
+      {
+        "id": "eq_tire_pressure_individual",
+        "name": {
+          "pl": "Tire pressure must be individualized to rider+bike mass, tire width and surface",
+          "en": "Tire pressure must be individualized to rider+bike mass, tire width and surface"
+        },
+        "description": {
+          "en": "No universal tire pressure. On rough surfaces lower pressures often reduce impedance losses and improve comfort until the tire becomes too soft.",
+          "pl": "No universal tire pressure. On rough surfaces lower pressures often reduce impedance losses and improve comfort until the tire becomes too soft."
+        },
+        "expert": "equipment",
+        "enabled": true,
+        "conditions": {
+          "op": "exists",
+          "path": "route.surface_profile"
+        },
+        "required_inputs": [
+          "route.surface_profile"
+        ],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "equipment",
+          "message_key": "tire_pressure_individualize",
+          "params": {
+            "guidance": "use_calculator_then_field_test"
+          }
+        },
+        "priority": 50,
+        "severity": "recommendation",
+        "evidence": "limited",
+        "source_ids": [
+          "src_velo_gravel_pressure_2018"
+        ],
+        "confidence": 0.6,
+        "limitations": "Field tests show surface-dependent optima; manufacturer max pressure must never be exceeded. System weight (rider+bike+luggage) is a primary input.",
+        "explanation": {
+          "en": "Field roll-down and vibration tests indicate that on gravel/rough surfaces lower pressures can reduce rolling resistance and vibration compared with high road pressures, but the optimum is highly individual.",
+          "pl": "Field roll-down and vibration tests indicate that on gravel/rough surfaces lower pressures can reduce rolling resistance and vibration compared with high road pressures, but the optimum is highly individual."
+        },
+        "recommendation_type": "equipment",
+        "version": "0.1.0"
+      },
+      {
+        "id": "eq_repair_kit_minimum_remote",
+        "name": {
+          "pl": "Minimalny zestaw naprawczy na odcinki remote",
+          "en": "Minimum repair kit for remote / self-supported sections"
+        },
+        "description": {
+          "en": "For sections with limited external support require basic puncture and mechanical self-repair capability.",
+          "pl": "For sections with limited external support require basic puncture and mechanical self-repair capability."
+        },
+        "expert": "equipment",
+        "enabled": true,
+        "conditions": {
+          "or": [
+            {
+              "op": "eq",
+              "path": "user.self_sufficiency_preference",
+              "value": "full"
+            },
+            {
+              "op": "eq",
+              "path": "profile.type",
+              "value": "bikepacking"
+            },
+            {
+              "op": "eq",
+              "path": "profile.type",
+              "value": "exploratory"
+            }
+          ]
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "equipment",
+          "message_key": "repair_kit_minimum",
+          "params": {
+            "items": [
+              "spare_tubes_or_plugs",
+              "pump_or_co2",
+              "multi_tool_with_chain_tool",
+              "quick_link",
+              "tire_levers",
+              "basic_patches"
+            ]
+          }
+        },
+        "priority": 70,
+        "severity": "recommendation",
+        "evidence": "expert_practice",
+        "source_ids": [
+          "src_bikepacking_practical_mec"
+        ],
+        "confidence": 0.75,
+        "limitations": "Exact contents depend on tubeless vs tube, drivetrain type and remoteness. Knowledge of how to use the tools is required.",
+        "explanation": {
+          "en": "Practical consensus from established bikepacking resources: ability to fix common punctures and simple drivetrain issues is baseline for self-supported travel.",
+          "pl": "Practical consensus from established bikepacking resources: ability to fix common punctures and simple drivetrain issues is baseline for self-supported travel."
+        },
+        "recommendation_type": "equipment",
+        "version": "0.1.0"
+      },
+      {
+        "id": "eq_night_riding_lights",
+        "name": {
+          "pl": "Adequate lighting required for planned night riding",
+          "en": "Adequate lighting required for planned night riding"
+        },
+        "description": {
+          "en": "If night riding is planned or likely, front and rear lights meeting visibility and illumination needs must be present and charged.",
+          "pl": "If night riding is planned or likely, front and rear lights meeting visibility and illumination needs must be present and charged."
+        },
+        "expert": "equipment",
+        "enabled": true,
+        "conditions": {
+          "or": [
+            {
+              "op": "eq",
+              "path": "user.night_riding_tolerance",
+              "value": "high"
+            },
+            {
+              "op": "eq",
+              "path": "ride.includes_night",
+              "value": true
+            }
+          ]
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "recommendation",
+          "recommendation_type": "equipment",
+          "message_key": "require_adequate_lights",
+          "params": {}
+        },
+        "priority": 80,
+        "severity": "warning",
+        "evidence": "expert_practice",
+        "source_ids": [
+          "src_bikepacking_practical_mec"
+        ],
+        "confidence": 0.85,
+        "limitations": "Legal requirements vary by jurisdiction. Battery runtime must cover planned night duration plus margin.",
+        "explanation": {
+          "en": "Safety and legal baseline for night riding; insufficient lighting elevates crash and visibility risk.",
+          "pl": "Safety and legal baseline for night riding; insufficient lighting elevates crash and visibility risk."
+        },
+        "recommendation_type": "equipment",
+        "version": "0.1.0"
+      },
+      {
+        "id": "eq_luggage_mass_unknown",
+        "name": {
+          "pl": "Nieznana masa bagażu",
+          "en": "Unknown luggage mass limits load-related calculations"
+        },
+        "description": {
+          "en": "When luggage mass is unknown, impact on climb performance and energy cannot be quantified.",
+          "pl": "When luggage mass is unknown, impact on climb performance and energy cannot be quantified."
+        },
+        "expert": "equipment",
+        "enabled": true,
+        "conditions": {
+          "op": "not_exists",
+          "path": "user.luggage_mass_kg"
+        },
+        "required_inputs": [],
+        "action": {
+          "type": "user_input_required",
+          "recommendation_type": "user_input_required",
+          "message_key": "request_luggage_mass",
+          "params": {
+            "blocked": [
+              "precise_climb_time_adjustment"
+            ]
+          }
+        },
+        "priority": 40,
+        "severity": "info",
+        "evidence": "operational",
+        "source_ids": [],
+        "confidence": 1.0,
+        "limitations": "",
+        "explanation": {
+          "en": "Practical tests show measurable but moderate time cost per extra kg on hilly routes; without the value the system cannot adjust estimates.",
+          "pl": "Practical tests show measurable but moderate time cost per extra kg on hilly routes; without the value the system cannot adjust estimates."
+        },
+        "recommendation_type": "user_input_required",
+        "version": "0.1.0"
+      }
+    ],
+    "race_strategy": [
+      {
+        "id": "rs_margin_tight",
+        "name": {
+          "pl": "Ciasny lub ujemny margines czasu",
+          "en": "Tight or negative time margin"
+        },
+        "expert": "race_strategy",
+        "enabled": true,
+        "conditions": {
+          "op": "in",
+          "path": "race.margin_status",
+          "value": [
+            "tight",
+            "over"
+          ]
+        },
+        "action": {
+          "type": "risk_warning",
+          "message_key": "time_margin_tight",
+          "recommendation_type": "time_adjustment",
+          "params_from_paths": {
+            "margin_h": "race.time_margin_hours",
+            "status": "race.margin_status"
+          }
+        },
+        "priority": 80,
+        "severity": "warning",
+        "source_ids": [
+          "src_acp_brevet_times"
+        ],
+        "description": {
+          "pl": "Wyzwalacz na race.margin_status z modelu time_margin.",
+          "en": "Trigger on time_margin model output."
+        },
+        "version": "0.9.1"
+      },
+      {
+        "id": "rs_safety_over_finish",
+        "name": {
+          "pl": "Bezpieczeństwo nad finiszem",
+          "en": "Safety over finish"
+        },
+        "expert": "race_strategy",
+        "enabled": true,
+        "conditions": {
+          "op": "eq",
+          "path": "conflict.involves_safety",
+          "value": true
+        },
+        "action": {
+          "type": "block",
+          "message_key": "safety_blocks_finish",
+          "recommendation_type": "emergency_plan"
+        },
+        "priority": 95,
+        "severity": "critical",
+        "source_ids": [],
+        "description": {
+          "pl": "Hierarchia conflict_model — nie liczy tempa.",
+          "en": "conflict_model hierarchy — no pacing math."
+        },
+        "version": "0.9.1"
+      },
+      {
+        "id": "rs_missing_limit",
+        "name": {
+          "pl": "Brak danych do marginesu czasu",
+          "en": "Missing data for time margin"
+        },
+        "expert": "race_strategy",
+        "enabled": true,
+        "conditions": {
+          "and": [
+            {
+              "op": "eq",
+              "path": "event.has_time_limit",
+              "value": true
+            },
+            {
+              "op": "not_exists",
+              "path": "event.time_limit_hours"
+            }
+          ]
+        },
+        "action": {
+          "type": "user_input_required",
+          "message_key": "need_time_limit",
+          "recommendation_type": "user_input_required"
+        },
+        "priority": 50,
+        "severity": "info",
+        "version": "0.9.1"
+      },
+      {
+        "id": "rs_power_decay_info",
+        "name": {
+          "pl": "Spadek względnej intensywności w długim etapie",
+          "en": "Relative intensity decay on long stage"
+        },
+        "expert": "race_strategy",
+        "enabled": true,
+        "conditions": {
+          "op": "lt",
+          "path": "stage.power_factor_end",
+          "value": 0.92
+        },
+        "action": {
+          "type": "info",
+          "message_key": "effort_decay_info",
+          "recommendation_type": "race_strategy",
+          "params_from_paths": {
+            "power_factor_end": "stage.power_factor_end",
+            "power_factor_mean": "stage.power_factor_mean"
+          }
+        },
+        "priority": 35,
+        "severity": "info",
+        "source_ids": [
+          "src_thomas_fatigue_2015",
+          "src_raam_pacing_2016"
+        ],
+        "description": {
+          "pl": "Wyzwalacz na wynik effort_decay — bez własnego wzoru.",
+          "en": "Trigger on effort_decay output only."
+        },
+        "version": "0.9.1"
+      }
+    ]
+  },
+  "calculations": {
+    "stage_demand": {
+      "id": "stage_demand",
+      "model_id": "stage_demand",
+      "engine_function": "eval_model_formulas",
+      "inputs": [
+        "stage.planned_distance_km",
+        "stage.elevation_gain_m",
+        "route.unpaved_fraction",
+        "route.dominant_surface",
+        "route.climb_segments",
+        "user.typical_speed_kmh",
+        "user.luggage_mass_kg",
+        "user.body_mass_kg",
+        "ride.estimated_time_hours"
+      ],
+      "outputs": [
+        "stage.estimated_time_hours",
+        "stage.climb_load_m",
+        "stage.steep_climb_km",
+        "stage.relative_effort_factor",
+        "stage.energy_kj_proxy",
+        "stage.cho_target_g_per_h_operational",
+        "stage.fluid_target_l_per_h_operational"
+      ]
+    },
+    "effort_decay": {
+      "id": "effort_decay",
+      "model_id": "effort_decay",
+      "engine_function": "eval_model_formulas",
+      "inputs": [
+        "stage.estimated_time_hours",
+        "stage.relative_effort_factor",
+        "stage.cho_target_g_per_h_operational",
+        "stage.fluid_target_l_per_h_operational"
+      ],
+      "outputs": [
+        "stage.power_factor_end",
+        "stage.power_factor_mean",
+        "stage.cho_target_g_per_h_adjusted",
+        "stage.fluid_target_l_per_h_adjusted",
+        "stage.demand_profile"
+      ]
+    },
+    "hydration_carry_plan": {
+      "id": "hydration_carry_plan",
+      "model_id": "hydration_carry_plan",
+      "engine_function": "eval_model_formulas",
+      "inputs": [
+        "stage.estimated_time_hours",
+        "stage.fluid_target_l_per_h_operational",
+        "ride.estimated_time_hours",
+        "user.sweat_rate_l_per_h",
+        "user.water_carry_capacity_l",
+        "user.planned_water_start_l",
+        "environment.temperature_c",
+        "stage.elevation_gain_m",
+        "stage.planned_distance_km",
+        "user.typical_speed_kmh",
+        "logistics.verified_water_pois_km"
+      ],
+      "outputs": [
+        "plan.hydration.target_l_per_h",
+        "plan.hydration.stage_need_l",
+        "plan.hydration.recommended_start_l",
+        "plan.hydration.coverage_hours_from_start",
+        "plan.hydration.coverage_km_from_start",
+        "plan.hydration.resupply_needed_by_km",
+        "plan.hydration.satisfied"
+      ]
+    },
+    "nutrition_pack_plan": {
+      "id": "nutrition_pack_plan",
+      "model_id": "nutrition_pack_plan",
+      "engine_function": "eval_model_formulas",
+      "inputs": [
+        "ride.estimated_time_hours",
+        "user.gi_tolerance_high_cho",
+        "user.nutrition_preference",
+        "user.planned_pack",
+        "logistics.verified_food_pois_km",
+        "user.gel_cho_g",
+        "user.bar_cho_g",
+        "user.banana_cho_g"
+      ],
+      "outputs": [
+        "plan.nutrition.target_cho_g_per_h",
+        "plan.nutrition.stage_cho_need_g",
+        "plan.nutrition.pack_cho_g",
+        "plan.nutrition.suggested_pack",
+        "plan.nutrition.feeding_schedule_hint",
+        "plan.nutrition.resupply_needed_by_km",
+        "plan.nutrition.satisfied",
+        "plan.nutrition.gel_cho_g_used",
+        "plan.nutrition.used_default_gel_cho",
+        "plan.nutrition.mode",
+        "plan.nutrition.recommended_start_cho_g"
+      ]
+    },
+    "gi_risk_vs_cho_rate": {
+      "id": "gi_risk_vs_cho_rate",
+      "model_id": "gi_risk_vs_cho_rate",
+      "engine_function": "eval_model_formulas",
+      "inputs": [
+        "stage.cho_target_g_per_h_adjusted",
+        "user.gi_tolerance_high_cho",
+        "stage.estimated_time_hours"
+      ],
+      "outputs": [
+        "plan.gi.risk_score",
+        "plan.gi.risk_band"
+      ]
+    },
+    "time_margin": {
+      "id": "time_margin",
+      "model_id": "time_margin",
+      "engine_function": "eval_model_formulas",
+      "inputs": [
+        "event.time_limit_hours",
+        "stage.estimated_time_hours",
+        "planned_stops_hours",
+        "planned_sleep_hours"
+      ],
+      "outputs": [
+        "race.time_margin_hours",
+        "race.margin_status"
+      ]
+    }
+  },
+  "dependency_graph": {
+    "model_order": [
+      "stage_demand",
+      "effort_decay",
+      "hydration_carry_plan",
+      "nutrition_pack_plan",
+      "gi_risk_vs_cho_rate",
+      "time_margin"
+    ],
+    "notes": "Rules run after models for the current decision_tree phase. No cycles."
+  },
+  "confidence_model": {
+    "description": "Multi-dimensional confidence. Single scalar is derived, never the only stored value.",
+    "dimensions": {
+      "source_reliability": {
+        "range": [
+          0,
+          1
+        ],
+        "description": "Credibility of the underlying source type and authors"
+      },
+      "evidence_strength": {
+        "range": [
+          0,
+          1
+        ],
+        "description": "strong/moderate/limited/preliminary/expert_practice/operational"
+      },
+      "data_freshness": {
+        "range": [
+          0,
+          1
+        ],
+        "description": "How current the information is"
+      },
+      "verification_level": {
+        "range": [
+          0,
+          1
+        ],
+        "description": "official > verified > user > unverified"
+      },
+      "completeness": {
+        "range": [
+          0,
+          1
+        ],
+        "description": "How complete the input data for this case are"
+      },
+      "case_applicability": {
+        "range": [
+          0,
+          1
+        ],
+        "description": "How well the evidence matches this user/route/conditions"
+      }
+    },
+    "derivation_policy": "Engine SHOULD compute an aggregate only after storing dimension scores. Do not treat a hard-coded 0.8 in a rule as final case confidence.",
+    "separation": {
+      "information_truth": "Confidence that a fact (e.g. shop exists) is true",
+      "recommendation_appropriateness": "Confidence that the recommended action is appropriate for this specific user and context"
+    },
+    "poi_confidence_factors": {
+      "official": {
+        "source_reliability": 0.9,
+        "verification_level": 0.9
+      },
+      "osm_recent": {
+        "source_reliability": 0.6,
+        "verification_level": 0.5
+      },
+      "user_report": {
+        "source_reliability": 0.4,
+        "verification_level": 0.3
+      },
+      "historical": {
+        "source_reliability": 0.3,
+        "data_freshness": 0.2
+      },
+      "unverified": {
+        "source_reliability": 0.1,
+        "verification_level": 0.1
+      }
+    },
+    "missing_data_policy": "Missing critical inputs lower completeness and case_applicability; quantitative recommendations that depend on them must return insufficient_data or user_input_required rather than a high-confidence number."
+  },
+  "conflict_model": {
+    "description": "Formal conflict resolution between experts. Never simple majority vote. Hierarchy is absolute for safety.",
+    "hierarchy": [
+      {
+        "rank": 1,
+        "id": "human_safety",
+        "label": "Bezpieczeństwo człowieka",
+        "blocks_lower": true
+      },
+      {
+        "rank": 2,
+        "id": "user_and_event_constraints",
+        "label": "Ograniczenia użytkownika i organizatora / limity czasowe wydarzenia"
+      },
+      {
+        "rank": 3,
+        "id": "physical_and_logistical_feasibility",
+        "label": "Fizyczna i logistyczna wykonalność"
+      },
+      {
+        "rank": 4,
+        "id": "main_trip_objective",
+        "label": "Główny cel wyprawy"
+      },
+      {
+        "rank": 5,
+        "id": "comfort",
+        "label": "Komfort"
+      },
+      {
+        "rank": 6,
+        "id": "time_and_cost_optimization",
+        "label": "Optymalizacja czasu i kosztów"
+      }
+    ],
+    "conflict_types": [
+      {
+        "id": "safety_vs_progress",
+        "description": "Ultra or Race Strategy wants to continue; Adventure/Logistics/Ultra sleep flags raise safety risk",
+        "default_winner": "human_safety",
+        "example": "Severe sleepiness vs remaining time margin"
+      },
+      {
+        "id": "supply_vs_time",
+        "description": "Race Strategy wants minimal stops; Logistics/Nutrition flags unverified or distant water/food",
+        "default_winner": "physical_and_logistical_feasibility",
+        "example": "Long supply gap vs aggressive schedule"
+      },
+      {
+        "id": "sleep_vs_distance",
+        "description": "Race Strategy minimises sleep to protect margin; Ultra/Adventure recommend sleep for cognition and safety",
+        "default_winner": "human_safety",
+        "example": "Projected <5.3 h average sleep vs finish ambition"
+      },
+      {
+        "id": "equipment_vs_comfort",
+        "description": "Equipment adequacy vs rider comfort preference",
+        "default_winner": "physical_and_logistical_feasibility",
+        "example": "Minimal repair kit vs remote route"
+      },
+      {
+        "id": "stage_length_vs_experience",
+        "description": "Ambitious stage vs user typical distance / multi-day inexperience",
+        "default_winner": "physical_and_logistical_feasibility",
+        "example": "First bikepacking with 120 km stages when typical is 60 km"
+      }
+    ],
+    "resolution_rules": [
+      {
+        "id": "cr_safety_blocks",
+        "when": "any_expert_severity == critical OR conflict.involves_safety == true",
+        "action": "block_recommendation_or_require_explicit_user_ack_and_alternatives",
+        "priority": 100,
+        "explanation": "Human safety always wins. System must not auto-apply a progress recommendation that overrides a critical safety flag."
+      },
+      {
+        "id": "cr_event_constraint",
+        "when": "event.time_limit_hours exists AND race.time_margin_hours < threshold AND no critical safety flag",
+        "action": "surface_margin_warning_and_options_reduce_stops_or_replan_sleep; never force continuous riding that creates safety risk",
+        "priority": 80,
+        "explanation": "Event constraints are high priority but still subordinate to safety."
+      },
+      {
+        "id": "cr_unresolvable_safe",
+        "when": "conflicting recommendations cannot be ranked without additional user data or would require inventing values",
+        "action": "return_alternatives_plus_user_input_required",
+        "priority": 70,
+        "explanation": "Prefer alternatives and questions over arbitrary choice."
+      },
+      {
+        "id": "cr_log_decision",
+        "when": "any_conflict_resolved",
+        "action": "record_conflict_id_winner_loser_rationale_hierarchy_rank_used",
+        "priority": 10,
+        "explanation": "Every resolution must be auditable."
+      }
+    ],
+    "blocking_cases": [
+      "critical_safety_flag_active",
+      "missing_critical_input_for_quantitative_recommendation",
+      "unverified_poi_treated_as_confirmed_supply"
+    ],
+    "alternative_required_cases": [
+      "safety_vs_progress",
+      "supply_gap_with_tight_time_margin",
+      "first_multi_day_with_ambitious_stages"
+    ],
+    "notes": "Coordinator (global) applies hierarchy. No voting. If two recommendations at same hierarchy level conflict, prefer the more conservative (higher safety margin) or request user choice."
+  },
+  "emergency_scenarios": {
+    "no_water": {
+      "id": "no_water",
+      "name": "Lack of confirmed water",
+      "trigger_conditions": {
+        "supply_gap_water_km": {
+          "op": "gt",
+          "value": "user.water_carry_capacity_km"
+        }
+      },
+      "severity": "high",
+      "risk_category": "physiological",
+      "recommended_actions": [
+        "shorten_stage",
+        "add_detour_to_known_source",
+        "carry_extra",
+        "abort_if_critical"
+      ],
+      "prevention_rules": [
+        "log_unverified_poi_not_assumed"
+      ],
+      "related_experts": [
+        "logistics",
+        "nutrition",
+        "adventure"
+      ],
+      "source_ids": [],
+      "limitations": "Exact distance thresholds depend on carry capacity, temperature and individual needs; not hard-coded here."
+    },
+    "flat_tire_no_repair": {
+      "id": "flat_tire_no_repair",
+      "name": "Puncture without adequate repair capability",
+      "trigger_conditions": {
+        "equipment.has_repair_kit": false,
+        "event": "puncture"
+      },
+      "severity": "high",
+      "risk_category": "mechanical",
+      "recommended_actions": [
+        "use_backup_if_any",
+        "walk_to_nearest_support",
+        "call_for_assistance_if_available"
+      ],
+      "prevention_rules": [
+        "eq_repair_kit_minimum_remote"
+      ],
+      "related_experts": [
+        "equipment",
+        "adventure",
+        "logistics"
+      ],
+      "source_ids": [
+        "src_bikepacking_practical_mec"
+      ],
+      "limitations": "Severity depends on distance to help and terrain."
+    },
+    "severe_sleep_deprivation": {
+      "id": "severe_sleep_deprivation",
+      "name": "Severe sleep deprivation / microsleep risk",
+      "trigger_conditions": {
+        "user.reported_sleepiness": "high",
+        "or_avg_sleep_h": {
+          "op": "lt",
+          "value": 4
+        }
+      },
+      "severity": "critical",
+      "risk_category": "physiological_cognitive",
+      "recommended_actions": [
+        "immediate_stop_and_sleep",
+        "do_not_continue_riding",
+        "find_safe_location"
+      ],
+      "prevention_rules": [
+        "ultra_sleep_threshold_warning"
+      ],
+      "related_experts": [
+        "ultra",
+        "race_strategy",
+        "adventure"
+      ],
+      "source_ids": [
+        "src_race_across_france_sleep_2026",
+        "src_bikepacking_practical_ridefar"
+      ],
+      "limitations": "Individual variation; hallucinations and crashes documented in ultra literature. Not a diagnostic tool."
+    },
+    "closed_resupply": {
+      "id": "closed_resupply",
+      "name": "Expected shop or water point closed or unavailable",
+      "trigger_conditions": {
+        "poi.expected_open": true,
+        "poi.actual_status": "closed_or_missing"
+      },
+      "severity": "medium_to_high",
+      "risk_category": "logistical",
+      "recommended_actions": [
+        "use_carried_reserves",
+        "divert_to_next_verified",
+        "shorten_stage",
+        "request_local_info"
+      ],
+      "prevention_rules": [
+        "log_unverified_poi_not_assumed"
+      ],
+      "related_experts": [
+        "logistics",
+        "adventure",
+        "nutrition"
+      ],
+      "source_ids": [],
+      "limitations": "Depends on remaining reserves and distance to alternative."
+    },
+    "drive_train_failure": {
+      "id": "drive_train_failure",
+      "name": "Major drivetrain failure (chain, derailleur, hanger)",
+      "trigger_conditions": {
+        "equipment.critical_mechanical": "drivetrain"
+      },
+      "severity": "high",
+      "risk_category": "mechanical",
+      "recommended_actions": [
+        "assess_repairability",
+        "use_spare_hanger_or_single_speed_conversion_if_possible",
+        "walk_or_hitch_to_service",
+        "abort_if_remote"
+      ],
+      "prevention_rules": [
+        "eq_repair_kit_minimum_remote"
+      ],
+      "related_experts": [
+        "equipment",
+        "adventure",
+        "logistics"
+      ],
+      "source_ids": [
+        "src_bikepacking_practical_mec"
+      ],
+      "limitations": "Depends on carried spares and rider skill."
+    },
+    "extreme_weather": {
+      "id": "extreme_weather",
+      "name": "Sudden extreme weather (storm, extreme heat/cold)",
+      "trigger_conditions": {
+        "environment.alert": "extreme"
+      },
+      "severity": "critical",
+      "risk_category": "environmental",
+      "recommended_actions": [
+        "seek_shelter",
+        "postpone_or_shorten",
+        "use_emergency_clothing_and_bivy",
+        "do_not_push_through_lightning_or_hypothermia_risk"
+      ],
+      "prevention_rules": [],
+      "related_experts": [
+        "adventure",
+        "logistics",
+        "ultra"
+      ],
+      "source_ids": [],
+      "limitations": "Medical red flags (hypothermia, heat stroke) require professional help; system is not a diagnostic tool."
+    },
+    "gi_distress": {
+      "id": "gi_distress",
+      "name": "Significant gastrointestinal distress during effort",
+      "trigger_conditions": {
+        "user.reported_gi": "severe"
+      },
+      "severity": "medium_to_high",
+      "risk_category": "physiological",
+      "recommended_actions": [
+        "reduce_intensity",
+        "switch_to_tolerated_foods_fluids",
+        "consider_stop_and_recover",
+        "seek_medical_if_persistent_or_alarm_symptoms"
+      ],
+      "prevention_rules": [
+        "nut_cho_long_mtc"
+      ],
+      "related_experts": [
+        "nutrition",
+        "ultra"
+      ],
+      "source_ids": [
+        "src_acsm_nutrition_2016",
+        "src_jeukendrup_mtc_2010"
+      ],
+      "limitations": "Not diagnostic. Alarm symptoms (blood, severe pain, dehydration signs) require medical evaluation."
+    },
+    "approaching_time_cut": {
+      "id": "approaching_time_cut",
+      "name": "Projected finish close to or beyond time limit",
+      "trigger_conditions": {
+        "race.time_margin_hours": {
+          "op": "lt",
+          "value": 1.0
+        }
+      },
+      "severity": "high",
+      "risk_category": "event_constraint",
+      "recommended_actions": [
+        "reduce_stops",
+        "reassess_sleep",
+        "consider_shorten_or_abandon_if_safety_compromised",
+        "do_not_sacrifice_safety_for_finish"
+      ],
+      "prevention_rules": [
+        "rs_brevet_time_limit_awareness",
+        "rs_time_margin_required"
+      ],
+      "related_experts": [
+        "race_strategy",
+        "ultra",
+        "logistics"
+      ],
+      "source_ids": [
+        "src_acp_brevet_times"
+      ],
+      "limitations": "Safety still overrides finish. System must never recommend dangerous continuous riding to beat a cut."
+    }
+  },
+  "recommendation_catalog": {
+    "items": {
+      "types": [
+        "stage_adjustment",
+        "route_adjustment",
+        "food_stop",
+        "water_refill",
+        "sleep_location",
+        "rest_stop",
+        "bike_service",
+        "equipment",
+        "nutrition",
+        "hydration",
+        "risk_warning",
+        "alternative_route",
+        "time_adjustment",
+        "race_strategy",
+        "emergency_plan",
+        "user_input_required",
+        "insufficient_data"
+      ],
+      "hydration_carry_insufficient": {
+        "message_key": "hydration_carry_insufficient",
+        "user_facing_template": {
+          "pl": "Zabierz ok. {recommended_start_l} L wody na start. Przy Twoim tempie uzupełnienie wody jest potrzebne około {resupply_needed_by_km} km (lub wcześniej na zweryfikowanym punkcie). Szacowane zapotrzebowanie etapu: {stage_need_l} L (ok. {target_l_per_h} L/h).",
+          "en": "Carry about {recommended_start_l} L at start. At your pace, plan water resupply by ~{resupply_needed_by_km} km (or earlier at a verified point). Stage need ~{stage_need_l} L (~{target_l_per_h} L/h)."
+        },
+        "clears_when_plan": "plan.hydration.satisfied"
+      },
+      "nutrition_pack_insufficient": {
+        "message_key": "nutrition_pack_insufficient",
+        "user_facing_template": {
+          "pl": "Na etap potrzeba ok. {stage_cho_need_g} g węglowodanów. W zapasie masz ok. {pack_cho_g} g (żel: {gel_cho_g} g CHO). Propozycja: {suggested_pack}. Rozłóż w czasie: {feeding_schedule_hint}. Uzupełnienie ok. {resupply_needed_by_km} km, jeśli nie dokładasz zapasu.",
+          "en": "Stage needs ~{stage_cho_need_g} g CHO; pack ~{pack_cho_g} g (gel {gel_cho_g} g CHO). Suggested: {suggested_pack}. Spread: {feeding_schedule_hint}. Resupply by ~{resupply_needed_by_km} km if not adding food."
+        },
+        "clears_when_plan": "plan.nutrition.satisfied",
+        "params_include": [
+          "stage_cho_need_g",
+          "pack_cho_g",
+          "gel_cho_g",
+          "suggested_pack",
+          "feeding_schedule_hint",
+          "resupply_needed_by_km"
+        ]
+      },
+      "nutrition_buffer_resupply": {
+        "message_key": "nutrition_buffer_resupply",
+        "user_facing_template": {
+          "pl": "Przyjmujemy normalne odżywianie (~{target_cho_g_per_h} g CHO/h). Na start ok. {recommended_start_cho_g} g CHO pod ręką; łącznie na etap ok. {stage_cho_need_g} g. Uzupełnienie jedzenia ok. {resupply_needed_by_km} km, chyba że niesiesz pełny zapas.",
+          "en": "Assuming normal fueling (~{target_cho_g_per_h} g CHO/h). Start with ~{recommended_start_cho_g} g CHO; stage total ~{stage_cho_need_g} g. Food resupply by ~{resupply_needed_by_km} km unless you carry full need."
+        }
+      },
+      "effort_decay_info": {
+        "message_key": "effort_decay_info",
+        "user_facing_template": {
+          "pl": "Na długim etapie model zakłada spadek względnej intensywności (współczynnik końcowy ok. {power_factor_end}, średni {power_factor_mean}). Zapotrzebowanie CHO/płynów jest lekko skorygowane — nie startuj „na maksa”.",
+          "en": "On a long stage the model assumes relative intensity decay (end factor ~{power_factor_end}, mean {power_factor_mean}). CHO/fluid targets are mildly adjusted — avoid maxing out early."
+        }
+      },
+      "time_margin_tight": {
+        "message_key": "time_margin_tight",
+        "user_facing_template": {
+          "pl": "Margines do limitu czasu: {margin_h} h (status: {status}).",
+          "en": "Time margin vs limit: {margin_h} h (status: {status})."
+        }
+      },
+      "sleep_low_warning": {
+        "message_key": "sleep_low_warning",
+        "user_facing_template": {
+          "pl": "Planowany sen jest niski względem danych z długich eventów — rośnie senność i ryzyko błędów.",
+          "en": "Planned sleep is low vs long-event data — sleepiness and error risk rise."
+        }
+      }
+    }
+  },
+  "validation": {
+    "description": "Validation rules for the knowledge base itself and for runtime engine behaviour.",
+    "static_checks": [
+      "json_syntax_valid",
+      "required_namespaces_present",
+      "all_rule_ids_unique",
+      "all_source_ids_referenced_exist_in_sources",
+      "all_source_ids_in_rules_exist",
+      "no_cycles_in_dependency_graph",
+      "units_consistent_with_core",
+      "every_rule_has_conditions_or_explicit_always",
+      "every_rule_has_explanation_and_source_ids_or_operational_flag",
+      "safety_related_rules_have_priority_gte_70",
+      "no_invented_numeric_thresholds_without_source_or_explicit_operational_flag",
+      "calculations_have_inputs_outputs_limitations"
+    ],
+    "logical_test_cases": [
+      {
+        "id": "tc_missing_body_mass",
+        "description": "User body mass unknown",
+        "expected": "nutrition rules that need mass emit user_input_required or insufficient_data; no invented mass; CHO absolute rates still available from duration bands",
+        "related_rules": [
+          "nut_missing_body_mass",
+          "nut_cho_1_to_2_5h",
+          "nut_cho_long_mtc"
+        ]
+      },
+      {
+        "id": "tc_unverified_poi",
+        "description": "POI marked unverified or hours unknown",
+        "expected": "log_unverified_poi_not_assumed and/or log_poi_opening_hours_unknown fire; system does not treat POI as confirmed supply",
+        "related_rules": [
+          "log_unverified_poi_not_assumed",
+          "log_poi_opening_hours_unknown"
+        ]
+      },
+      {
+        "id": "tc_safety_vs_finish",
+        "description": "Race Strategy has tight margin; Ultra/Adventure flag severe sleepiness or no water",
+        "expected": "conflict_model hierarchy selects human_safety; rs_safety_over_finish and/or global_safety_first block finish-at-all-cost; alternatives returned",
+        "related_rules": [
+          "rs_safety_over_finish",
+          "global_safety_first",
+          "ultra_sleep_threshold_warning"
+        ]
+      },
+      {
+        "id": "tc_first_bikepacking",
+        "description": "multi_day_experience false or limited, bikepacking profile, ambitious stages",
+        "expected": "adv_first_bikepacking_uncertainty and possibly log_stage_length_vs_experience recommend conservative stages; higher uncertainty flagged",
+        "related_rules": [
+          "adv_first_bikepacking_uncertainty",
+          "log_stage_length_vs_experience"
+        ]
+      },
+      {
+        "id": "tc_long_supply_gap",
+        "description": "logistics.supply_gap_km large, no verified water",
+        "expected": "adv_supply_gap_contingency and emergency no_water; alternatives (carry more, shorten, divert)",
+        "related_rules": [
+          "adv_supply_gap_contingency",
+          "log_unverified_poi_not_assumed"
+        ]
+      },
+      {
+        "id": "tc_missing_luggage_mass",
+        "description": "luggage_mass_kg unknown",
+        "expected": "eq_luggage_mass_unknown emits user_input_required; luggage_time_impact_proxy not run with invented value",
+        "related_rules": [
+          "eq_luggage_mass_unknown"
+        ]
+      },
+      {
+        "id": "tc_brevet_margin",
+        "description": "brevet profile with time_limit_hours and estimated_time",
+        "expected": "rs_brevet_time_limit_awareness and time_margin_vs_limit produce margin status; if margin low, approaching_time_cut may fire but safety still overrides",
+        "related_rules": [
+          "rs_brevet_time_limit_awareness",
+          "rs_time_margin_required",
+          "rs_missing_time_limit_data"
+        ]
+      },
+      {
+        "id": "tc_stage_change_propagation",
+        "description": "User changes stage length and elevation",
+        "expected": "Only dependent modules re-run (logistics -> ultra/nutrition/adventure/race_strategy); global re-validation; no stale recommendations",
+        "related_rules": [],
+        "related_graph": "dependency_graph"
+      }
+    ],
+    "parameter_verification": {
+      "description": "Key numeric or band parameters checked against collected sources. Invented universal thresholds are forbidden.",
+      "items": [
+        {
+          "parameter": "CHO intake duration bands",
+          "value_in_kb": "<1 h: not required; 1-2.5 h: 30-60 g/h; >2.5 h: up to 90 g/h MTC",
+          "sources": [
+            "src_acsm_nutrition_2016",
+            "src_jeukendrup_mtc_2010",
+            "src_issn_nutrient_timing_2017"
+          ],
+          "status": "verified",
+          "notes": "Directly from ACSM/AND/DC 2016 and Jeukendrup reviews. Absolute, not per-kg. Individual GI tolerance and intensity modifiers required."
+        },
+        {
+          "parameter": "Dehydration threshold",
+          "value_in_kb": "prevent >2% body mass loss",
+          "sources": [
+            "src_acsm_fluid_2007",
+            "src_acsm_nutrition_2016"
+          ],
+          "status": "verified",
+          "notes": "ACSM Position Stand 2007 and Nutrition 2016. Individual sweat rate preferred over fixed ml/h."
+        },
+        {
+          "parameter": "Sleep average threshold (Race Across France)",
+          "value_in_kb": "~5.29 h / 24 h associated with rising sleepiness",
+          "sources": [
+            "src_race_across_france_sleep_2026"
+          ],
+          "status": "verified_as_observational",
+          "notes": "Single-event observational finding (n=23). Used as risk flag, not universal medical threshold. Marked moderate confidence."
+        },
+        {
+          "parameter": "Circadian sleep window",
+          "value_in_kb": "prefer midnight-4am / 3-5am for rest",
+          "sources": [
+            "src_race_across_france_sleep_2026",
+            "src_audax_sleep_practice"
+          ],
+          "status": "verified_as_practical_and_observational",
+          "notes": "Supported by event data and practical brevet guidance. Not a hard physiological law."
+        },
+        {
+          "parameter": "Brevet official time limits (examples)",
+          "value_in_kb": "referenced via src_acp_brevet_times (200 km 13h30, 600 km 40h etc.)",
+          "sources": [
+            "src_acp_brevet_times"
+          ],
+          "status": "verified_operational",
+          "notes": "Regulatory. Engine should use event-specific limit when provided rather than hard-coding."
+        },
+        {
+          "parameter": "Central vs peripheral fatigue with duration",
+          "value_in_kb": "longer continuous efforts (>=3 h) increase relative central fatigue contribution",
+          "sources": [
+            "src_thomas_fatigue_2015",
+            "src_millet_ultra_cns_2018"
+          ],
+          "status": "verified_directional",
+          "notes": "Thomas 2015: more central fatigue after 20-40 km TTs vs 4 km. Millet: systematic voluntary activation decline in ultra, attenuated in cycling vs running. Used directionally, not as numeric cut."
+        },
+        {
+          "parameter": "Luggage mass time cost",
+          "value_in_kb": "proxy ~1-1.5 min per kg on specific hilly 100 km (practical test)",
+          "sources": [
+            "src_cyclingabout_weight_2021"
+          ],
+          "status": "verified_as_practical_limited",
+          "notes": "Single-tester field data. Marked limitations; aero often dominates. Not universal formula."
+        },
+        {
+          "parameter": "Tire pressure",
+          "value_in_kb": "no universal number; individualize to system mass, width, surface",
+          "sources": [
+            "src_velo_gravel_pressure_2018"
+          ],
+          "status": "verified_principle",
+          "notes": "Field tests show surface-dependent optima. KB correctly refuses a single psi recommendation."
+        },
+        {
+          "parameter": "Elevation stage flag 1500 m",
+          "value_in_kb": "operational flag only, not physiological threshold",
+          "sources": [],
+          "status": "explicitly_operational",
+          "notes": "Marked in rule limitations as illustrative operational marker. Acceptable under KB policy when flagged as such."
+        },
+        {
+          "parameter": "Supply gap 40 km example",
+          "value_in_kb": "illustrative in condition; actual risk depends on carry capacity and temperature",
+          "sources": [],
+          "status": "explicitly_operational",
+          "notes": "Rule limitations state threshold is illustrative. Engine should prefer capacity-based logic when data exist."
+        }
+      ]
+    },
+    "runtime_engine_expectations": [
+      "Never invent missing numeric inputs",
+      "Propagate changes only through dependency_graph",
+      "Log every conflict resolution with hierarchy rank used",
+      "Surface insufficient_data or user_input_required rather than silent defaults",
+      "Safety critical recommendations require explicit user acknowledgement if overridden"
+    ]
+  },
+  "sources": {
+    "src_acsm_nutrition_2016": {
+      "id": "src_acsm_nutrition_2016",
+      "title": "American College of Sports Medicine Joint Position Statement. Nutrition and Athletic Performance",
+      "authors": [
+        "Thomas DT",
+        "Erdman KA",
+        "Burke LM"
+      ],
+      "year": 2016,
+      "publisher": "Medicine & Science in Sports & Exercise",
+      "publication_type": "position_stand",
+      "doi": "10.1249/MSS.0000000000000852",
+      "pmid": "26891166",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/26891166/",
+      "evidence_level": "A",
+      "topics": [
+        "carbohydrate_intake",
+        "hydration",
+        "nutrition_timing",
+        "endurance",
+        "recovery"
+      ],
+      "key_findings": "CHO guidelines by duration; individualized hydration; referral to sports RD.",
+      "limitations": "General; individual variation high.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_acsm_fluid_2007": {
+      "id": "src_acsm_fluid_2007",
+      "title": "American College of Sports Medicine position stand. Exercise and fluid replacement",
+      "authors": [
+        "Sawka MN",
+        "Burke LM",
+        "Eichner ER",
+        "Maughan RJ",
+        "Montain SJ",
+        "Stachenfeld NS"
+      ],
+      "year": 2007,
+      "publisher": "Medicine & Science in Sports & Exercise",
+      "publication_type": "position_stand",
+      "doi": "10.1249/mss.0b013e31802ca597",
+      "pmid": "17277604",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/17277604/",
+      "evidence_level": "A",
+      "topics": [
+        "hydration",
+        "dehydration",
+        "electrolytes"
+      ],
+      "key_findings": "Prevent >2% BM loss; customize to sweat rate.",
+      "limitations": "Single-session focus primarily.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_jeukendrup_mtc_2010": {
+      "id": "src_jeukendrup_mtc_2010",
+      "title": "Carbohydrate and exercise performance: the role of multiple transportable carbohydrates",
+      "authors": [
+        "Jeukendrup AE"
+      ],
+      "year": 2010,
+      "publisher": "Current Opinion in Clinical Nutrition and Metabolic Care",
+      "publication_type": "review",
+      "doi": "10.1097/MCO.0b013e328339de9f",
+      "pmid": "20574242",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/20574242/",
+      "evidence_level": "A",
+      "topics": [
+        "multiple_transportable_carbohydrates"
+      ],
+      "key_findings": "MTC allow higher exogenous oxidation and better performance in ≥2.5-3 h events.",
+      "limitations": "Trained athletes; gut training needed.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_issn_nutrient_timing_2017": {
+      "id": "src_issn_nutrient_timing_2017",
+      "title": "International society of sports nutrition position stand: nutrient timing",
+      "authors": [
+        "Kerksick CM et al."
+      ],
+      "year": 2017,
+      "publisher": "JISSN",
+      "publication_type": "position_stand",
+      "doi": "10.1186/s12970-017-0189-4",
+      "url": "https://link.springer.com/article/10.1186/s12970-017-0189-4",
+      "evidence_level": "A",
+      "topics": [
+        "nutrient_timing"
+      ],
+      "key_findings": "30-60 g CHO/h for prolonged high-intensity.",
+      "limitations": "",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_race_across_france_sleep_2026": {
+      "id": "src_race_across_france_sleep_2026",
+      "title": "The Cognitive Costs of Sleep Deprivation in Ultra-Endurance Cycling: Insights From the Race Across France",
+      "authors": [
+        "Hurdiel R et al."
+      ],
+      "year": 2026,
+      "publisher": "Journal of Sleep Research",
+      "publication_type": "original_research",
+      "doi": "10.1111/jsr.70295",
+      "pmid": "41622427",
+      "url": "https://onlinelibrary.wiley.com/doi/10.1111/jsr.70295",
+      "evidence_level": "B",
+      "topics": [
+        "sleep",
+        "ultracycling"
+      ],
+      "key_findings": "Higher TST associated with better rankings; <5.29 h/day linked to increased sleepiness and cognitive decline.",
+      "limitations": "Single event, observational, n=23.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_raam_pacing_2016": {
+      "id": "src_raam_pacing_2016",
+      "title": "Pacing Strategies of Ultracyclists in the Race Across AMerica",
+      "authors": [
+        "Knechtle B et al."
+      ],
+      "year": 2016,
+      "publisher": "IJSPP",
+      "publication_type": "observational",
+      "doi": "10.1123/ijspp.2015-0051",
+      "pmid": "26215121",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/26215121/",
+      "evidence_level": "B",
+      "topics": [
+        "pacing",
+        "RAAM"
+      ],
+      "key_findings": "Positive pacing common; top finishers start faster and maintain longer.",
+      "limitations": "Observational.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_bikepacking_practical_mec": {
+      "id": "src_bikepacking_practical_mec",
+      "title": "Bikepacking checklist",
+      "authors": [
+        "MEC"
+      ],
+      "year": null,
+      "publisher": "MEC",
+      "publication_type": "practical_guide",
+      "url": "https://www.mec.ca/en/explore/bikepacking-checklist",
+      "evidence_level": "C",
+      "topics": [
+        "equipment",
+        "repair"
+      ],
+      "key_findings": "Core repair and lighting items for self-sufficiency.",
+      "limitations": "Practical, not scientific.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_bikepacking_practical_ridefar": {
+      "id": "src_bikepacking_practical_ridefar",
+      "title": "Sleeping Strategies & Equipment for Bikepacking Races",
+      "authors": [
+        "Ride Far"
+      ],
+      "year": null,
+      "publisher": "Ride Far",
+      "publication_type": "practical_guide",
+      "url": "https://ridefar.info/rider/strategy/sleeping/",
+      "evidence_level": "C",
+      "topics": [
+        "sleep_strategy"
+      ],
+      "key_findings": "Typical sleep volumes in races; caution on drowsy riding.",
+      "limitations": "Experiential.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_velo_gravel_pressure_2018": {
+      "id": "src_velo_gravel_pressure_2018",
+      "title": "What is the optimal tire pressure for gravel?",
+      "authors": [
+        "Zinn L / VeloNews"
+      ],
+      "year": 2018,
+      "publisher": "Velo / Outside",
+      "publication_type": "field_test",
+      "doi": null,
+      "pmid": null,
+      "url": "https://velo.outsideonline.com/gravel/optimal-tire-pressure-gravel/",
+      "evidence_level": "C",
+      "topics": [
+        "tire_pressure",
+        "rolling_resistance",
+        "gravel"
+      ],
+      "key_findings": "On gravel, lower pressures (around 30 psi for ~70 kg rider on 35 mm tire in the specific test) reduced rolling resistance compared with high pressures; too low also increased resistance. Comfort improved at lower pressures.",
+      "limitations": "Small sample, specific tire and surface; not a controlled lab study across many conditions. Individual system weight critical.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_cyclingabout_weight_2021": {
+      "id": "src_cyclingabout_weight_2021",
+      "title": "Why We Should Stop Our Obsession With Bike and Gear Weight",
+      "authors": [
+        "CyclingAbout"
+      ],
+      "year": 2021,
+      "publisher": "CyclingAbout",
+      "publication_type": "practical_test",
+      "url": "https://www.cyclingabout.com/why-we-should-stop-our-obsession-with-bike-and-gear-weight/",
+      "evidence_level": "C",
+      "topics": [
+        "luggage_mass",
+        "performance_impact"
+      ],
+      "key_findings": "Extra kilogram of luggage on a hilly ~100 km course with significant elevation added roughly 1-1.5 minutes in real-world testing (model predictions ~76-80 s/kg). Aerodynamics of luggage setup often more impactful than pure mass.",
+      "limitations": "Single tester, specific course; not peer-reviewed scientific study.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_thomas_fatigue_2015": {
+      "id": "src_thomas_fatigue_2015",
+      "title": "Central and Peripheral Fatigue in Male Cyclists after 4-, 20-, and 40-km Time Trials",
+      "authors": [
+        "Thomas K",
+        "Goodall S",
+        "Stone M",
+        "Howatson G",
+        "St Clair Gibson A",
+        "Ansley L"
+      ],
+      "year": 2015,
+      "publisher": "Medicine & Science in Sports & Exercise",
+      "publication_type": "original_research",
+      "doi": "10.1249/MSS.0000000000000448",
+      "pmid": null,
+      "url": "https://journals.lww.com/acsm-msse/fulltext/2015/05000/central_and_peripheral_fatigue_in_male_cyclists.15.aspx",
+      "evidence_level": "B",
+      "topics": [
+        "central_fatigue",
+        "peripheral_fatigue",
+        "cycling",
+        "time_trial"
+      ],
+      "key_findings": "Task-dependent fatigue: greater peripheral fatigue after short high-intensity TT (4 km); greater central fatigue (reduced voluntary activation) after longer TTs (20-40 km).",
+      "limitations": "Trained male cyclists; laboratory TTs, not multi-day ultra.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_millet_ultra_cns_2018": {
+      "id": "src_millet_ultra_cns_2018",
+      "title": "The role of the nervous system in neuromuscular fatigue induced by ultra-endurance exercise",
+      "authors": [
+        "Millet GY et al."
+      ],
+      "year": 2018,
+      "publisher": "Sports Medicine / review",
+      "publication_type": "review",
+      "doi": null,
+      "pmid": "29726694",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29726694/",
+      "evidence_level": "A",
+      "topics": [
+        "central_fatigue",
+        "ultra_endurance",
+        "neuromuscular"
+      ],
+      "key_findings": "Large decreases in voluntary activation common in ultra-endurance running; attenuated in ultra-endurance cycling for comparable duration/intensity. Afferent feedback likely important. Sleep deprivation elevates RPE but may not be primary driver of central fatigue per se.",
+      "limitations": "Most data from running; cycling-specific data more limited.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_acp_brevet_times": {
+      "id": "src_acp_brevet_times",
+      "title": "ACP / RUSA Brevet Control Times and Speed Limits",
+      "authors": [
+        "Audax Club Parisien / Randonneurs USA"
+      ],
+      "year": 2024,
+      "publisher": "RUSA / ACP regulations",
+      "publication_type": "operational_rules",
+      "doi": null,
+      "pmid": null,
+      "url": "https://rusa.org/pages/acp-brevet-control-times-calculator",
+      "evidence_level": "D",
+      "topics": [
+        "brevet",
+        "time_limit",
+        "randonneuring"
+      ],
+      "key_findings": "Official minimum/maximum average speeds by distance band for ACP brevets. Intermediate controls now largely advisory; final control is timed. Example limits: 200 km 13h30, 300 km 20h, 400 km 27h, 600 km 40h, 1000 km 75h.",
+      "limitations": "Regulatory, not scientific performance data. Specific events may have local variations.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    },
+    "src_audax_sleep_practice": {
+      "id": "src_audax_sleep_practice",
+      "title": "Practical sleep and midnight strategies for long Audax / brevet rides",
+      "authors": [
+        "Audax community guides / Roadman Cycling"
+      ],
+      "year": null,
+      "publisher": "Community / practical guides",
+      "publication_type": "practical_guide",
+      "url": "https://roadmancycling.com/blog/cycling-audax-randonneuring-guide",
+      "evidence_level": "C",
+      "topics": [
+        "sleep_strategy",
+        "brevet",
+        "night_riding"
+      ],
+      "key_findings": "Sleep deprivation is a major separator of finishers vs non-finishers on 600 km+. Circadian low ~3-5 am is high-risk window. Schedule sleep or control stops into this window when possible. Chunking the ride and planned power naps are common tactics.",
+      "limitations": "Experiential; individual variation high.",
+      "access_date": "2026-11-04",
+      "verification_status": "verified"
+    }
+  },
+  "research_required": [
+    "Detailed multi-day energy expenditure models specific to loaded bikepacking vs ultra racing",
+    "Tire pressure and rolling resistance quantifications for common gravel/MTB surfaces with luggage",
+    "Validated POI freshness models for rural/remote Europe/Poland",
+    "Gut training protocols effectiveness in recreational vs elite cyclists",
+    "Quantitative risk models for night riding with different lighting setups",
+    "Full expansion of adventure, equipment, race_strategy rule catalogs with additional primary sources",
+    "Emergency medical red-flag decision trees that stay non-diagnostic",
+    "Quantitative tire pressure models incorporating system weight + surface roughness + tire width (beyond single field tests)",
+    "Validated multi-day energy cost of loaded bikepacking vs unloaded",
+    "Multi-day energy balance and recovery nutrition models for loaded bikepacking and ultra",
+    "Intensity-modulated CHO and fluid guidance (not duration alone)",
+    "Formal multi-dimensional confidence aggregation algorithm for engine",
+    "Equipment: gearing suitability vs elevation profile; tire pressure calculators with system mass",
+    "Logistics: time-to-resupply given speed, surface and carry capacity",
+    "Unified emergency trigger_conditions normalized to standard condition interpreter"
+  ],
+  "completeness_report": {
+    "models": [
+      "hydration_carry_plan",
+      "nutrition_pack_plan",
+      "gi_risk_vs_cho_rate",
+      "stage_demand",
+      "effort_decay",
+      "time_margin"
+    ],
+    "calculations": [
+      "stage_demand",
+      "effort_decay",
+      "hydration_carry_plan",
+      "nutrition_pack_plan",
+      "gi_risk_vs_cho_rate",
+      "time_margin"
+    ],
+    "rules_count": {
+      "nutrition": 5,
+      "ultra": 2,
+      "logistics": 5,
+      "global": 1,
+      "adventure": 3,
+      "equipment": 4,
+      "race_strategy": 4
+    },
+    "total_rules": 24,
+    "formula_models": [
+      "hydration_carry_plan",
+      "nutrition_pack_plan",
+      "gi_risk_vs_cho_rate",
+      "stage_demand",
+      "effort_decay",
+      "time_margin"
+    ]
+  },
+  "data_dictionary": {
+    "description": "Canonical paths used by rules, calculations and experts. Engine and wizard must map inputs to these paths. Absence is not zero.",
+    "paths": {
+      "user.body_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Body mass for relative calculations when needed"
+      },
+      "user.planned_sleep_h_per_24": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Planned or typical average sleep per 24 h during the event"
+      },
+      "user.typical_distance_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false
+      },
+      "user.typical_speed_kmh": {
+        "type": "number",
+        "unit": "km/h",
+        "required": false
+      },
+      "user.experience_level": {
+        "type": "enum",
+        "values": [
+          "beginner",
+          "intermediate",
+          "advanced",
+          "elite"
+        ]
+      },
+      "user.multi_day_experience": {
+        "type": "boolean|enum",
+        "values": [
+          true,
+          false,
+          "limited"
+        ]
+      },
+      "user.bikepacking_experience": {
+        "type": "boolean"
+      },
+      "user.ultra_experience": {
+        "type": "boolean"
+      },
+      "user.self_sufficiency_preference": {
+        "type": "enum",
+        "values": [
+          "supported",
+          "semi",
+          "full"
+        ]
+      },
+      "user.night_riding_tolerance": {
+        "type": "enum",
+        "values": [
+          "none",
+          "limited",
+          "high"
+        ]
+      },
+      "user.luggage_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "unknown_allowed": true
+      },
+      "user.bike_type": {
+        "type": "enum",
+        "values": [
+          "road",
+          "gravel",
+          "mtb",
+          "touring",
+          "hybrid",
+          "other"
+        ]
+      },
+      "user.gi_tolerance_high_cho": {
+        "type": "enum",
+        "values": [
+          "unknown",
+          "low",
+          "moderate",
+          "trained"
+        ],
+        "description": "Prior experience tolerating high CHO rates during exercise"
+      },
+      "ride.estimated_time_hours": {
+        "type": "number",
+        "unit": "h",
+        "description": "Canonical estimated moving + relevant time for nutrition/fatigue rules"
+      },
+      "stage.planned_distance_km": {
+        "type": "number",
+        "unit": "km",
+        "description": "Canonical stage distance path"
+      },
+      "stage.elevation_gain_m": {
+        "type": "number",
+        "unit": "m"
+      },
+      "stage.distance_km": {
+        "type": "number",
+        "unit": "km",
+        "deprecated": true,
+        "alias_of": "stage.planned_distance_km"
+      },
+      "route.distance_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "route.elevation_gain_m": {
+        "type": "number",
+        "unit": "m"
+      },
+      "route.unpaved_fraction": {
+        "type": "number",
+        "range": [
+          0,
+          1
+        ]
+      },
+      "route.surface_profile": {
+        "type": "object|string"
+      },
+      "route.dominant_surface": {
+        "type": "string"
+      },
+      "event.time_limit_hours": {
+        "type": "number",
+        "unit": "h"
+      },
+      "event.intermediate_controls_timed": {
+        "type": "boolean"
+      },
+      "poi.verification_status": {
+        "type": "enum",
+        "values": [
+          "official",
+          "verified",
+          "unverified",
+          "outdated",
+          "user_report"
+        ]
+      },
+      "poi.opening_hours": {
+        "type": "string|object"
+      },
+      "poi.hours_confidence": {
+        "type": "enum",
+        "values": [
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "logistics.supply_gap_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "profile.type": {
+        "type": "string",
+        "description": "Active trip profile id"
+      },
+      "conflict.involves_safety": {
+        "type": "boolean"
+      },
+      "ride.includes_night": {
+        "type": "boolean"
+      },
+      "ride.planned_intensity_early": {
+        "type": "enum",
+        "values": [
+          "easy",
+          "moderate",
+          "hard"
+        ]
+      },
+      "environment.temperature_c": {
+        "type": "number",
+        "unit": "°C"
+      },
+      "user.water_carry_capacity_km": {
+        "type": "number",
+        "unit": "km",
+        "description": "Approximate distance coverable with carried water under current conditions"
+      },
+      "user.sweat_rate_l_per_h": {
+        "type": "number",
+        "unit": "L/h",
+        "unknown_allowed": true,
+        "description": "Measured sweat rate if available"
+      },
+      "user.water_carry_capacity_l": {
+        "type": "number",
+        "unit": "L",
+        "unknown_allowed": true
+      },
+      "user.planned_water_start_l": {
+        "type": "number",
+        "unit": "L",
+        "unknown_allowed": true
+      },
+      "user.nutrition_preference": {
+        "type": "enum",
+        "values": [
+          "gels",
+          "mixed",
+          "real_food",
+          "unknown"
+        ]
+      },
+      "user.planned_pack": {
+        "type": "object",
+        "description": "Counts of items: {gels: n, bananas: n, bars: n, other_cho_g: n}. CHO per gel/bar/banana taken from user.gel_cho_g etc. when set."
+      },
+      "logistics.verified_water_pois_km": {
+        "type": "array",
+        "description": "km marks of verified water"
+      },
+      "logistics.verified_food_pois_km": {
+        "type": "array",
+        "description": "km marks of verified food"
+      },
+      "plan.hydration.satisfied": {
+        "type": "boolean"
+      },
+      "plan.nutrition.satisfied": {
+        "type": "boolean"
+      },
+      "plan.hydration.resupply_needed_by_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "plan.nutrition.resupply_needed_by_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "plan.nutrition.suggested_pack": {
+        "type": "object"
+      },
+      "plan.hydration.recommended_start_l": {
+        "type": "number",
+        "unit": "L"
+      },
+      "user.gel_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Carbohydrate grams per one gel unit the user actually carries. Brand-specific (e.g. 20–45 g). Required for accurate gel counts; if missing, model uses item_defaults.gel_cho_g and lowers completeness."
+      },
+      "user.bar_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "CHO grams per bar unit if user-specified"
+      },
+      "user.banana_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "CHO grams per banana if user-specified; else default"
+      },
+      "route.climb_segments": {
+        "type": "array",
+        "description": "Optional [{start_km, end_km, gain_m, avg_grade_pct}] from GPX analysis"
+      },
+      "stage.estimated_time_hours": {
+        "type": "number",
+        "unit": "h",
+        "description": "Canonical stage time from stage_demand or user override"
+      },
+      "stage.relative_effort_factor": {
+        "type": "number"
+      },
+      "stage.energy_kj_proxy": {
+        "type": "number",
+        "unit": "kJ"
+      },
+      "plan.nutrition.mode": {
+        "type": "enum",
+        "values": [
+          "pack",
+          "buffer"
+        ]
+      },
+      "plan.nutrition.recommended_start_cho_g": {
+        "type": "number",
+        "unit": "g"
+      },
+      "wizard.mode": {
+        "type": "enum",
+        "values": [
+          "short",
+          "advanced"
+        ]
+      },
+      "trip.horizon": {
+        "type": "enum",
+        "values": [
+          "single_day",
+          "multi_day"
+        ]
+      },
+      "trip.days_count": {
+        "type": "integer",
+        "min": 1
+      },
+      "lodging.preference": {
+        "type": "enum",
+        "values": [
+          "wild",
+          "camp",
+          "pension",
+          "mixed",
+          "unknown"
+        ]
+      },
+      "lodging.nights_km": {
+        "type": "array",
+        "description": "Planned overnight locations as km from start"
+      },
+      "plan.nutrition.coverage_km_from_start": {
+        "type": "number",
+        "unit": "km"
+      },
+      "plan.hydration.coverage_km_from_start": {
+        "type": "number",
+        "unit": "km"
+      }
+    },
+    "naming_conventions": {
+      "stage_distance": "stage.planned_distance_km",
+      "ride_time": "ride.estimated_time_hours",
+      "body_mass": "user.body_mass_kg",
+      "planned_sleep": "user.planned_sleep_h_per_24"
+    }
+  },
+  "threshold_taxonomy": {
+    "types": [
+      {
+        "id": "scientific_threshold",
+        "description": "Derived from position stands or consistent research findings"
+      },
+      {
+        "id": "operational_threshold",
+        "description": "Technical/logistical flag for engine; not a physiological law"
+      },
+      {
+        "id": "heuristic",
+        "description": "Orientative practical rule with limited evidence"
+      },
+      {
+        "id": "user_specific",
+        "description": "Derived from user profile or measured individual data"
+      },
+      {
+        "id": "event_defined",
+        "description": "Taken from event regulations or organizer constraints"
+      }
+    ]
+  },
+  "condition_format": {
+    "standard": "All decision rules use 'conditions' with operators: eq, neq, gt, gte, lt, lte, in, not_in, exists, not_exists, and, or, not. Comparison either 'value' (literal) or 'value_path' (another path).",
+    "emergency_scenarios": "Use 'trigger_conditions' as a convenience alias; engine should normalize to the same interpreter.",
+    "recommendation": "Prefer value_path when comparing two data fields; prefer value for constants. Avoid mixing path names for the same concept."
+  },
+  "architecture": {
+    "version": "1.1.0",
+    "layout": [
+      "meta",
+      "i18n",
+      "data_dictionary",
+      "parameter_catalog",
+      "decision_tree",
+      "models",
+      "calculations",
+      "rules",
+      "recommendation_catalog",
+      "conflict_model",
+      "confidence_model",
+      "sources",
+      "validation"
+    ],
+    "separation_of_concerns": {
+      "models": "Jedyna warstwa liczb: constants + formulas (DSL). PHP: eval_model_formulas. effort_decay koryguje CHO/fluid gdy spada power_factor.",
+      "calculations": "Kontrakt PHP 1:1 z models (engine_function, inputs, outputs). Bez drugiej kopii logiki.",
+      "rules": "Cienkie wyzwalacze IF na path (plan.*, user.*, route.*). NIE powtarzają wzorów modeli. Emitują message_key + params_from_paths.",
+      "recommendation_catalog": "Teksty PL/EN dla message_key.",
+      "decision_tree": "Kolejność zbierania danych i które modele odpalić. Nie liczy fizyki.",
+      "experts": "Namespace reguł (nutrition, logistics, …), nie osobne silniki liczbowe."
+    },
+    "anti_pattern": "Nie dodawaj reguły typu „30-60 g CHO/h” obok modelu, który już to zakłada. Wiedza progów = models.*.assumptions + sources.",
+    "single_source_of_truth": "adventure_knowledge.json",
+    "php_workload": "PHP should implement one formula evaluator + POI chain helpers. No hard-coded 0.6 L/h or 60 g/h in application code — read from models.*.constants/formulas."
+  },
+  "models": {
+    "hydration_carry_plan": {
+      "id": "hydration_carry_plan",
+      "name": {
+        "pl": "Plan wody (zapas i uzupełnienia)",
+        "en": "Hydration carry and resupply plan"
+      },
+      "purpose": {
+        "pl": "Ile wody zabrać, do którego km starczy, gdzie dodać POI. Znika z listy gdy satisfied.",
+        "en": "How much water to carry, coverage km, where to add POI. Clears when satisfied."
+      },
+      "threshold_type": "operational_threshold",
+      "assumptions": {
+        "default_intake_l_per_h": {
+          "value": 0.6,
+          "range_literature_start": [
+            0.4,
+            0.8
+          ],
+          "source_note": "Operational start point consistent with common ACSM-derived practical guidance (approx 0.4–0.8 L/h); NOT a personal sweat rate.",
+          "override": "user.sweat_rate_l_per_h if measured"
+        },
+        "heat_multiplier": {
+          "cool_lt_15c": 0.9,
+          "mild_15_22c": 1.0,
+          "warm_22_28c": 1.2,
+          "hot_gt_28c": 1.4,
+          "note": "Operational multipliers only; prefer measured sweat rate."
+        },
+        "elevation_effort_multiplier_per_1000m": 0.08,
+        "reserve_fraction": 0.15,
+        "min_reserve_l": 0.3,
+        "max_reasonable_start_carry_l": 4.0
+      },
+      "inputs": [
+        "stage.estimated_time_hours",
+        "stage.fluid_target_l_per_h_operational",
+        "ride.estimated_time_hours",
+        "user.sweat_rate_l_per_h",
+        "user.water_carry_capacity_l",
+        "user.planned_water_start_l",
+        "environment.temperature_c",
+        "stage.elevation_gain_m",
+        "stage.planned_distance_km",
+        "user.typical_speed_kmh",
+        "logistics.verified_water_pois_km"
+      ],
+      "outputs": [
+        "plan.hydration.target_l_per_h",
+        "plan.hydration.stage_need_l",
+        "plan.hydration.recommended_start_l",
+        "plan.hydration.coverage_hours_from_start",
+        "plan.hydration.coverage_km_from_start",
+        "plan.hydration.resupply_needed_by_km",
+        "plan.hydration.satisfied"
+      ],
+      "algorithm": {
+        "steps": [
+          "1. rate = user.sweat_rate_l_per_h if exists else default_intake_l_per_h * heat_multiplier * (1 + elevation_gain_m/1000 * elev_mult)",
+          "2. stage_need_l = rate * ride.estimated_time_hours * (1 + reserve_fraction), floor min_reserve on top of need",
+          "3. start_l = min(user.planned_water_start_l or user.water_carry_capacity_l or recommended, max_reasonable_start_carry_l)",
+          "4. coverage_hours = start_l / rate; coverage_km = coverage_hours * typical_speed (surface-adjusted if available)",
+          "5. If verified water POI exists at km <= coverage_km * 0.9, chain coverage; else resupply_needed_by_km = round(coverage_km * 0.85)",
+          "6. satisfied = (planned start + reachable verified resupply volume) >= stage_need_l within stage"
+        ]
+      },
+      "satisfaction": {
+        "clears_recommendation_when": "plan.hydration.satisfied == true",
+        "related_message_keys": [
+          "hydration_carry_insufficient",
+          "add_water_poi_by_km"
+        ]
+      },
+      "source_ids": [
+        "src_acsm_fluid_2007",
+        "src_acsm_nutrition_2016"
+      ],
+      "limitations": [
+        "Default L/h is operational, not measured sweat rate. ACSM prioritizes individualization via weigh-in.",
+        "Does not model sodium needs in detail.",
+        "POI must be verification_status verified|official to count as resupply."
+      ],
+      "kind": "planning",
+      "suppression": [
+        {
+          "id": "no_early_poi_while_start_stock_covers",
+          "rule": "Do not suggest resupply POI at km << coverage_km_from_start (e.g. avoid 10 km food POI when start buffer covers 3–4 h / long water coverage). First suggestion targets resupply_needed_by_km.",
+          "uses": [
+            "plan.nutrition.coverage_km_from_start",
+            "plan.hydration.coverage_km_from_start",
+            "plan.*.resupply_needed_by_km"
+          ]
+        }
+      ],
+      "constants": {
+        "reserve_fraction": 0.15,
+        "min_start_l": 0.5,
+        "max_start_l_default_cap": 4.0,
+        "coverage_safety": 0.85
+      },
+      "formulas": {
+        "rate": "coalesce(stage.fluid_target_l_per_h_adjusted, stage.fluid_target_l_per_h_operational)",
+        "stage_need_l": "rate * stage.estimated_time_hours * (1 + reserve_fraction)",
+        "recommended_start_l": "clamp(coalesce(user.planned_water_start_l, min(user.water_carry_capacity_l, stage_need_l)), min_start_l, coalesce(user.water_carry_capacity_l, max_start_l_default_cap))",
+        "start_l": "coalesce(user.planned_water_start_l, recommended_start_l)",
+        "coverage_hours": "start_l / max(rate, 0.05)",
+        "speed": "max(user.typical_speed_kmh, 8)",
+        "coverage_km_from_start": "coverage_hours * speed * coverage_safety",
+        "resupply_needed_by_km": "coverage_km_from_start * coverage_safety",
+        "satisfied": "if(start_l >= stage_need_l, true, if(has_verified_water_before(coverage_km_from_start), chain_ok, false))"
+      },
+      "php_helpers": {
+        "has_verified_water_before": "any logistics.verified_water_pois_km where km <= coverage_km_from_start * 0.9",
+        "chain_ok": "extend coverage by assuming refill to capacity at each verified POI until stage end or gap"
+      }
+    },
+    "nutrition_pack_plan": {
+      "id": "nutrition_pack_plan",
+      "name": {
+        "pl": "Plan żywienia na rowerze",
+        "en": "On-bike nutrition pack plan"
+      },
+      "purpose": {
+        "pl": "Bufor CHO lub konkretna paczka; harmonogram; km uzupełnienia. Bez menu = tryb buffer.",
+        "en": "CHO buffer or concrete pack; schedule; resupply km. No menu = buffer mode."
+      },
+      "threshold_type": "operational_threshold",
+      "assumptions": {
+        "cho_g_per_h_by_duration": {
+          "lt_1h": 0,
+          "from_1_to_2_5h": 45,
+          "gt_2_5h": 60,
+          "gt_2_5h_if_trained_gi": 75,
+          "note": "Operational mid-band targets from ACSM/Jeukendrup ranges (30-60 / up to 90). Not a prescription to force 90."
+        },
+        "item_defaults": {
+          "gel_cho_g": 25,
+          "banana_cho_g": 27,
+          "bar_cho_g": 30,
+          "real_food_snack_cho_g": 35,
+          "note": "Fallbacks ONLY when user.*_cho_g is missing. Prefer user.gel_cho_g (product label). Typical commercial gels often ~20–45 g CHO."
+        },
+        "max_gels_without_other_food": 4,
+        "min_minutes_between_gels": 25,
+        "prefer_mix_after_gels": 3
+      },
+      "inputs": [
+        "ride.estimated_time_hours",
+        "user.gi_tolerance_high_cho",
+        "user.nutrition_preference",
+        "user.planned_pack",
+        "logistics.verified_food_pois_km",
+        "user.gel_cho_g",
+        "user.bar_cho_g",
+        "user.banana_cho_g"
+      ],
+      "outputs": [
+        "plan.nutrition.target_cho_g_per_h",
+        "plan.nutrition.stage_cho_need_g",
+        "plan.nutrition.pack_cho_g",
+        "plan.nutrition.suggested_pack",
+        "plan.nutrition.feeding_schedule_hint",
+        "plan.nutrition.resupply_needed_by_km",
+        "plan.nutrition.satisfied",
+        "plan.nutrition.gel_cho_g_used",
+        "plan.nutrition.used_default_gel_cho",
+        "plan.nutrition.mode",
+        "plan.nutrition.recommended_start_cho_g"
+      ],
+      "algorithm": {
+        "steps": [
+          "0. Prefer stage.cho_target_g_per_h_operational from stage_demand if present",
+          "1. gel_cho = user.gel_cho_g if exists else default; used_default flag",
+          "2. stage_cho_need_g = target_g_per_h * stage.estimated_time_hours",
+          "3. IF planned_pack provided: pack_cho_g from counts × per-item CHO; schedule mix",
+          "4. IF planned_pack absent: mode=buffer; recommended_start_cho_g = target * min(start_buffer_hours_default, stage_time);    coverage from buffer; resupply_needed_by_km for remainder; do not require gel counts",
+          "5. satisfied if pack_cho or buffer+verified food POIs cover stage need under policy"
+        ]
+      },
+      "satisfaction": {
+        "clears_recommendation_when": "plan.nutrition.satisfied == true",
+        "related_message_keys": [
+          "nutrition_pack_insufficient",
+          "add_food_poi_by_km",
+          "nutrition_pack_ok"
+        ]
+      },
+      "source_ids": [
+        "src_acsm_nutrition_2016",
+        "src_jeukendrup_mtc_2010"
+      ],
+      "limitations": [
+        "Item CHO defaults are typical product averages; user brands differ.",
+        "Does not replace GI feel during the ride.",
+        "Total daily energy balance is out of scope of this on-bike pack model."
+      ],
+      "kind": "planning",
+      "unknown_pack_policy": {
+        "assume_normal_fueling": true,
+        "use_stage_cho_target_from": "stage.cho_target_g_per_h_operational",
+        "start_buffer_hours_default": 4,
+        "note": "When planned_pack missing: recommended_start_cho_g = rate * min(4h, stage_time) as start buffer; resupply_needed_by_km from remaining need. Do not invent gel SKUs."
+      },
+      "suppression": [
+        {
+          "id": "no_early_poi_while_start_stock_covers",
+          "rule": "Do not suggest resupply POI at km << coverage_km_from_start (e.g. avoid 10 km food POI when start buffer covers 3–4 h / long water coverage). First suggestion targets resupply_needed_by_km.",
+          "uses": [
+            "plan.nutrition.coverage_km_from_start",
+            "plan.hydration.coverage_km_from_start",
+            "plan.*.resupply_needed_by_km"
+          ]
+        }
+      ],
+      "constants": {
+        "default_gel_cho_g": 25,
+        "default_banana_cho_g": 27,
+        "default_bar_cho_g": 30,
+        "buffer_start_hours": 4,
+        "coverage_safety": 0.85,
+        "min_minutes_between_gels": 25
+      },
+      "formulas": {
+        "gel_cho": "coalesce(user.gel_cho_g, default_gel_cho_g)",
+        "bar_cho": "coalesce(user.bar_cho_g, default_bar_cho_g)",
+        "banana_cho": "coalesce(user.banana_cho_g, default_banana_cho_g)",
+        "target_g_h": "coalesce(stage.cho_target_g_per_h_adjusted, stage.cho_target_g_per_h_operational)",
+        "stage_cho_need_g": "target_g_h * stage.estimated_time_hours",
+        "pack_cho_g": "coalesce(user.planned_pack.gels,0)*gel_cho + coalesce(user.planned_pack.bananas,0)*banana_cho + coalesce(user.planned_pack.bars,0)*bar_cho + coalesce(user.planned_pack.other_cho_g,0)",
+        "mode": "if(pack_declared, 'pack', 'buffer')",
+        "recommended_start_cho_g": "target_g_h * min(buffer_start_hours, stage.estimated_time_hours)",
+        "effective_start_cho_g": "if(mode == pack, pack_cho_g, recommended_start_cho_g)",
+        "coverage_hours": "effective_start_cho_g / max(target_g_h, 1)",
+        "coverage_km_from_start": "coverage_hours * max(user.typical_speed_kmh, 8) * coverage_safety",
+        "resupply_needed_by_km": "coverage_km_from_start * coverage_safety",
+        "satisfied": "if(effective_start_cho_g >= stage_cho_need_g * 0.95, true, food_poi_chain_ok)"
+      }
+    },
+    "gi_risk_vs_cho_rate": {
+      "id": "gi_risk_vs_cho_rate",
+      "name": {
+        "pl": "Względne ryzyko GI vs stawka CHO",
+        "en": "Relative GI risk vs CHO rate"
+      },
+      "purpose": {
+        "pl": "Pasmo ryzyka (low/elevated/high), nie twarda blokada.",
+        "en": "Risk band (low/elevated/high), not a hard block."
+      },
+      "inputs": {
+        "target_cho_g_per_h": {
+          "type": "number",
+          "unit": "g/h",
+          "default_if_missing": "from_duration_band"
+        },
+        "gi_experience": {
+          "type": "enum",
+          "values": [
+            "unknown",
+            "low",
+            "moderate",
+            "trained"
+          ],
+          "default_if_missing": "unknown",
+          "source_path": "user.gi_tolerance_high_cho"
+        },
+        "event_duration_h": {
+          "type": "number",
+          "unit": "h",
+          "source_path": "ride.estimated_time_hours"
+        }
+      },
+      "parameters": {
+        "note": "These are tunable engine parameters, not universal physiological constants. They encode relative ordering consistent with literature direction (higher rate + lower experience → higher relative risk).",
+        "base_risk_by_rate": [
+          {
+            "cho_g_per_h_max": 30,
+            "base": 0.15
+          },
+          {
+            "cho_g_per_h_max": 60,
+            "base": 0.35
+          },
+          {
+            "cho_g_per_h_max": 90,
+            "base": 0.55
+          },
+          {
+            "cho_g_per_h_max": 999,
+            "base": 0.7
+          }
+        ],
+        "experience_multiplier": {
+          "trained": 0.45,
+          "moderate": 0.7,
+          "low": 1.15,
+          "unknown": 1.0
+        },
+        "duration_factor": {
+          "description": "Slight upward adjustment for very long continuous efforts where cumulative GI load rises",
+          "above_hours": 5,
+          "multiplier": 1.1
+        },
+        "band_thresholds": {
+          "low": {
+            "max_score": 0.3
+          },
+          "elevated": {
+            "max_score": 0.55
+          },
+          "high": {
+            "max_score": 1.01
+          }
+        }
+      },
+      "output": {
+        "risk_score": "0-1 relative",
+        "risk_band": [
+          "low",
+          "elevated",
+          "high"
+        ],
+        "message_guidance": {
+          "low": "Within common practice range for many riders; still monitor feel.",
+          "elevated": "Higher than typical unpracticed rates; consider stepwise increase in training and have backup lower-rate options on the ride.",
+          "high": "Rate associated with more frequent GI reports when gut is unaccustomed; strongly prefer practiced protocol or lower target and prioritize sensations."
+        }
+      },
+      "engine_contract": {
+        "formula_sketch": "score = base_risk(rate) * experience_multiplier[gi_experience] * (duration_factor if duration > above_hours else 1.0); band = from thresholds",
+        "must_not": [
+          "Treat score as probability of clinical event",
+          "Override rider real-time sensations",
+          "Invent a personal absolute ceiling without user history"
+        ],
+        "fallback": "If target rate unknown, use duration-band default from cho_target_range and mark completeness lower"
+      },
+      "evidence": {
+        "direction": "Higher exogenous CHO rates increase exogenous oxidation capacity when multiple transporters are used, but GI symptom incidence remains substantial and training of the gut improves tolerance in many athletes (Jeukendrup, ACSM).",
+        "source_ids": [
+          "src_jeukendrup_mtc_2010",
+          "src_acsm_nutrition_2016"
+        ],
+        "limitations": "No single validated equation maps rate × experience → individual GI probability. Parameters above are heuristic relative weights for ranking, not calibrated clinical probabilities."
+      },
+      "kind": "probabilistic",
+      "placement": "Under models (kind=probabilistic), not under experts. Experts may attach message_key to risk_band output. Does not drive stage geometry.",
+      "constants": {
+        "base_by_rate": [
+          [
+            30,
+            0.15
+          ],
+          [
+            60,
+            0.35
+          ],
+          [
+            90,
+            0.55
+          ],
+          [
+            999,
+            0.7
+          ]
+        ],
+        "exp_mult": {
+          "trained": 0.45,
+          "moderate": 0.7,
+          "low": 1.15,
+          "unknown": 1.0
+        },
+        "duration_boost_after_h": 5,
+        "duration_mult": 1.1,
+        "band_low_max": 0.3,
+        "band_elevated_max": 0.55
+      },
+      "formulas": {
+        "rate": "coalesce(nutrition.target_cho_g_per_h, stage.cho_target_g_per_h_adjusted, stage.cho_target_g_per_h_operational)",
+        "base": "lookup_rate_base(rate, base_by_rate)",
+        "score": "base * lookup(exp_mult, coalesce(user.gi_tolerance_high_cho, unknown), 1.0) * if(stage.estimated_time_hours > duration_boost_after_h, duration_mult, 1.0)",
+        "plan.gi.risk_band": "if(score <= band_low_max, 'low', if(score <= band_elevated_max, 'elevated', 'high'))"
+      },
+      "outputs": [
+        "plan.gi.risk_score",
+        "plan.gi.risk_band"
+      ]
+    },
+    "stage_demand": {
+      "id": "stage_demand",
+      "kind": "foundation",
+      "name": {
+        "pl": "Zapotrzebowanie etapu (fundament)",
+        "en": "Stage demand foundation"
+      },
+      "purpose": {
+        "pl": "Wspólny węzeł: dystans, przewyższenia, nawierzchnia → czas, obciążenie, operacyjne CHO/h i L/h.",
+        "en": "Shared node: distance, elevation, surface → time, load, operational CHO/h and L/h."
+      },
+      "inputs": [
+        "stage.planned_distance_km",
+        "stage.elevation_gain_m",
+        "route.unpaved_fraction",
+        "route.dominant_surface",
+        "route.climb_segments",
+        "user.typical_speed_kmh",
+        "user.luggage_mass_kg",
+        "user.body_mass_kg",
+        "ride.estimated_time_hours"
+      ],
+      "outputs": [
+        "stage.estimated_time_hours",
+        "stage.climb_load_m",
+        "stage.steep_climb_km",
+        "stage.relative_effort_factor",
+        "stage.energy_kj_proxy",
+        "stage.cho_target_g_per_h_operational",
+        "stage.fluid_target_l_per_h_operational"
+      ],
+      "algorithm": {
+        "steps": [
+          "1. If ride.estimated_time_hours provided, use as stage.estimated_time_hours; else time = f(distance, typical_speed, surface_factor, elev_penalty, luggage_penalty)",
+          "2. climb_load_m = stage.elevation_gain_m (or sum of climb_segments.gain_m if provided)",
+          "3. If climb_segments present: steep_climb_km = sum length where avg_grade_pct >= operational steep threshold (e.g. 7%); effort factor increases with steep_km and total gain/distance",
+          "4. relative_effort_factor = 1 + k1*(gain_m/distance_km)/10 + k2*unpaved_fraction + k3*luggage_mass/body_mass (caps apply)",
+          "5. energy_kj_proxy = operational MET-like or kJ/km × distance × effort_factor (explicitly a PROXY not lab calorimetry)",
+          "6. cho_target_g_per_h_operational from duration band midpoints (0 / ~45 / ~60), optional slight uptick if effort_factor high — still operational",
+          "7. fluid_target_l_per_h_operational from default 0.6 × heat_mult × small elev factor, or user.sweat_rate if set"
+        ]
+      },
+      "assumptions": {
+        "steep_grade_pct_operational": 7,
+        "surface_speed_factors": {
+          "paved": 1.0,
+          "gravel": 0.88,
+          "mixed": 0.92,
+          "dirt": 0.85,
+          "singletrack": 0.8
+        },
+        "elev_time_penalty_h_per_1000m": 0.15,
+        "energy_proxy_note": "Not individual calorimetry; for planning ratios and resupply timing only"
+      },
+      "source_ids": [
+        "src_acsm_nutrition_2016",
+        "src_acsm_fluid_2007",
+        "src_cyclingabout_weight_2021"
+      ],
+      "limitations": [
+        "Without climb_segments, only total elevation_gain_m is used — no per-km steepness.",
+        "energy_kj_proxy must not be presented as precise personal calorie need.",
+        "GPX parsing of segments is engine responsibility; KB only defines contract."
+      ],
+      "constants": {
+        "surface_speed_factor": {
+          "paved": 1.0,
+          "mixed": 0.92,
+          "gravel": 0.88,
+          "dirt": 0.85,
+          "singletrack": 0.8
+        },
+        "elev_time_h_per_1000m": 0.15,
+        "luggage_time_factor_per_kg": 0.008,
+        "steep_grade_pct": 7.0,
+        "steep_effort_k": 0.05,
+        "gain_per_km_effort_k": 0.04,
+        "unpaved_effort_k": 0.12,
+        "luggage_effort_k": 0.15,
+        "effort_factor_cap": 1.6,
+        "cho_g_per_h": {
+          "lt_1h": 0,
+          "h1_to_2_5": 45,
+          "gt_2_5": 60
+        },
+        "fluid_l_per_h_base": 0.6,
+        "heat_mult": {
+          "lt_15": 0.9,
+          "15_22": 1.0,
+          "22_28": 1.2,
+          "gt_28": 1.4
+        },
+        "elev_fluid_k_per_1000m": 0.08,
+        "energy_kj_per_km_base": 40
+      },
+      "formulas": {
+        "surface_f": "lookup(surface_speed_factor, route.dominant_surface, 0.9)",
+        "time_h_base": "stage.planned_distance_km / max(user.typical_speed_kmh, 8) / surface_f",
+        "time_h_elev": "time_h_base + (stage.elevation_gain_m / 1000) * elev_time_h_per_1000m",
+        "time_h_luggage": "time_h_elev * (1 + coalesce(user.luggage_mass_kg, 0) * luggage_time_factor_per_kg)",
+        "stage.estimated_time_hours": "coalesce(ride.estimated_time_hours, time_h_luggage)",
+        "climb_load_m": "coalesce(sum(route.climb_segments.gain_m), stage.elevation_gain_m)",
+        "gain_per_km": "climb_load_m / max(stage.planned_distance_km, 1)",
+        "relative_effort_factor": "clamp(1 + gain_per_km * gain_per_km_effort_k + coalesce(route.unpaved_fraction,0) * unpaved_effort_k + (coalesce(user.luggage_mass_kg,0) / max(coalesce(user.body_mass_kg,75),40)) * luggage_effort_k, 1.0, effort_factor_cap)",
+        "stage.cho_target_g_per_h_operational": "if(stage.estimated_time_hours < 1, 0, if(stage.estimated_time_hours <= 2.5, cho_g_per_h.h1_to_2_5, cho_g_per_h.gt_2_5))",
+        "heat_m": "if(environment.temperature_c < 15, heat_mult.lt_15, if(environment.temperature_c <= 22, heat_mult.15_22, if(environment.temperature_c <= 28, heat_mult.22_28, heat_mult.gt_28)))",
+        "stage.fluid_target_l_per_h_operational": "coalesce(user.sweat_rate_l_per_h, fluid_l_per_h_base * coalesce(heat_m, 1.0) * (1 + stage.elevation_gain_m/1000 * elev_fluid_k_per_1000m))",
+        "stage.energy_kj_proxy": "energy_kj_per_km_base * stage.planned_distance_km * relative_effort_factor"
+      }
+    },
+    "effort_decay": {
+      "id": "effort_decay",
+      "kind": "foundation",
+      "name": {
+        "pl": "Spadek intensywności / zapotrzebowania w czasie długiego wysiłku",
+        "en": "Effort and demand decay over prolonged effort"
+      },
+      "purpose": {
+        "pl": "Operacyjny współczynnik: wraz z czasem i obciążeniem podjazdami spada względna moc i nieco koryguje się tempo zużycia. Nie jest modelem FTP laboratoryjnym.",
+        "en": "Operational factor: relative power declines with duration/climb load; adjusts demand pace. Not a lab FTP model."
+      },
+      "constants": {
+        "decay_start_h": 3.0,
+        "decay_k_per_h": 0.04,
+        "decay_floor": 0.72,
+        "climb_decay_extra_k": 0.02,
+        "cho_track_power": 0.5,
+        "note": "Directional from prolonged fatigue literature (central fatigue share rises with duration — Thomas 2015, Millet 2018). Constants are operational, not universal physiology."
+      },
+      "inputs": [
+        "stage.estimated_time_hours",
+        "stage.relative_effort_factor",
+        "stage.cho_target_g_per_h_operational",
+        "stage.fluid_target_l_per_h_operational"
+      ],
+      "outputs": [
+        "stage.power_factor_end",
+        "stage.power_factor_mean",
+        "stage.cho_target_g_per_h_adjusted",
+        "stage.fluid_target_l_per_h_adjusted",
+        "stage.demand_profile"
+      ],
+      "formulas": {
+        "t": "stage.estimated_time_hours",
+        "raw_decay": "if(t <= decay_start_h, 1.0, max(decay_floor, 1.0 - (t - decay_start_h) * decay_k_per_h))",
+        "climb_adj": "max(decay_floor, raw_decay - max(stage.relative_effort_factor - 1.0, 0) * climb_decay_extra_k)",
+        "stage.power_factor_end": "climb_adj",
+        "stage.power_factor_mean": "(1.0 + stage.power_factor_end) / 2",
+        "stage.cho_target_g_per_h_adjusted": "stage.cho_target_g_per_h_operational * (1.0 - cho_track_power * (1.0 - stage.power_factor_mean))",
+        "stage.fluid_target_l_per_h_adjusted": "stage.fluid_target_l_per_h_operational * (0.85 + 0.15 * stage.power_factor_mean)"
+      },
+      "demand_profile_algorithm": {
+        "description": "Optional piecewise profile for PHP: split stage into N segments by time or climb_segments; apply power_factor(t) per segment; sum CHO and fluid.",
+        "steps": [
+          "If route.climb_segments present: for each segment compute local time proxy and local factor",
+          "Else: 4 equal time quarters with factors interpolating 1.0 → power_factor_end",
+          "stage.demand_profile = [{t0,t1, power_factor, cho_g, fluid_l}, ...]"
+        ]
+      },
+      "source_ids": [
+        "src_thomas_fatigue_2015",
+        "src_millet_ultra_cns_2018",
+        "src_raam_pacing_2016"
+      ],
+      "limitations": [
+        "Operational decay curve, not measured watt drop for this athlete.",
+        "CHO still required on long events even if power falls — adjustment is mild (cho_track_power=0.5).",
+        "Positive pacing observation (RAAM) supports not starting at max output."
+      ]
+    },
+    "time_margin": {
+      "id": "time_margin",
+      "kind": "planning",
+      "name": {
+        "pl": "Margines do limitu czasu wydarzenia",
+        "en": "Margin vs event time limit"
+      },
+      "inputs": [
+        "event.time_limit_hours",
+        "stage.estimated_time_hours",
+        "planned_stops_hours",
+        "planned_sleep_hours"
+      ],
+      "outputs": [
+        "race.time_margin_hours",
+        "race.margin_status"
+      ],
+      "constants": {
+        "tight_h": 1.0,
+        "ok_h": 3.0
+      },
+      "formulas": {
+        "used": "stage.estimated_time_hours + coalesce(planned_stops_hours,0) + coalesce(planned_sleep_hours,0)",
+        "race.time_margin_hours": "event.time_limit_hours - used",
+        "race.margin_status": "if(race.time_margin_hours < 0, 'over', if(race.time_margin_hours < tight_h, 'tight', if(race.time_margin_hours < ok_h, 'moderate', 'comfortable')))"
+      },
+      "source_ids": [
+        "src_acp_brevet_times"
+      ]
+    }
+  },
+  "decision_tree": {
+    "version": "1.0.0",
+    "description": {
+      "en": "Progressive phases. Engine walks phases; after each phase may run bound models and rules.",
+      "pl": "Progresywne fazy. Silnik przechodzi fazy; po każdej może uruchomić powiązane modele i reguły."
+    },
+    "root_inputs": [
+      "wizard.mode",
+      "stage.planned_distance_km",
+      "stage.elevation_gain_m",
+      "route.dominant_surface",
+      "profile.type",
+      "trip.horizon",
+      "user.typical_distance_km",
+      "user.typical_speed_kmh",
+      "user.experience_level",
+      "user.multi_day_experience",
+      "user.bike_type"
+    ],
+    "phases": [
+      {
+        "id": "P0_seed",
+        "title": {
+          "pl": "Trasa + cel wyprawy + zgrubny profil",
+          "en": "Route + intent + coarse profile"
+        },
+        "collect_paths": [
+          "wizard.mode",
+          "profile.type",
+          "trip.horizon",
+          "stage.planned_distance_km",
+          "stage.elevation_gain_m",
+          "route.dominant_surface",
+          "route.unpaved_fraction",
+          "user.experience_level",
+          "user.multi_day_experience",
+          "user.typical_distance_km",
+          "user.typical_speed_kmh",
+          "user.bike_type"
+        ],
+        "run_models": [
+          "stage_demand",
+          "effort_decay"
+        ],
+        "run_experts": [
+          "logistics",
+          "adventure"
+        ],
+        "branch": {
+          "if": {
+            "path": "trip.horizon",
+            "eq": "multi_day"
+          },
+          "then_next": "P2_multi",
+          "else_next": "P1_load"
+        },
+        "outputs_focus": [
+          "stage.estimated_time_hours",
+          "stage.cho_target_g_per_h_operational",
+          "stage.fluid_target_l_per_h_operational",
+          "stage.relative_effort_factor"
+        ]
+      },
+      {
+        "id": "P1_load",
+        "title": {
+          "pl": "Masa ciała, rower, bagaż, pojemność wody",
+          "en": "Body–bike–luggage–water capacity"
+        },
+        "collect_paths": [
+          "user.body_mass_kg",
+          "user.luggage_mass_kg",
+          "user.bike_mass_kg",
+          "user.water_carry_capacity_l",
+          "environment.temperature_c"
+        ],
+        "run_models": [
+          "stage_demand",
+          "effort_decay",
+          "hydration_carry_plan"
+        ],
+        "run_experts": [
+          "equipment",
+          "nutrition"
+        ],
+        "next": "P3_stock",
+        "skip_if_short_defaults": true
+      },
+      {
+        "id": "P2_multi",
+        "title": {
+          "pl": "Gałąź multi-day (dni, noclegi, sen)",
+          "en": "Multi-day branch"
+        },
+        "when": {
+          "path": "trip.horizon",
+          "eq": "multi_day"
+        },
+        "collect_paths": [
+          "trip.days_count",
+          "lodging.preference",
+          "lodging.nights_km",
+          "user.planned_sleep_h_per_24"
+        ],
+        "run_models": [
+          "stage_demand"
+        ],
+        "run_experts": [
+          "ultra",
+          "adventure",
+          "logistics"
+        ],
+        "next": "P1_load"
+      },
+      {
+        "id": "P3_stock",
+        "title": {
+          "pl": "Zapas na starcie: woda i żywienie",
+          "en": "Start stock: water + nutrition"
+        },
+        "collect_paths": [
+          "user.planned_water_start_l",
+          "user.nutrition_preference",
+          "user.gel_cho_g",
+          "user.planned_pack.gels",
+          "user.planned_pack.bananas",
+          "user.planned_pack.bars",
+          "user.planned_pack.other_cho_g"
+        ],
+        "run_models": [
+          "stage_demand",
+          "effort_decay",
+          "hydration_carry_plan",
+          "nutrition_pack_plan"
+        ],
+        "run_experts": [
+          "nutrition"
+        ],
+        "suppression": [
+          {
+            "id": "no_early_poi_while_covered",
+            "description": "Do not suggest resupply POI at km much less than coverage_km_from_start"
+          }
+        ],
+        "next": "P4_pois"
+      },
+      {
+        "id": "P4_pois",
+        "title": {
+          "pl": "Zweryfikowane punkty uzupełnienia na trasie",
+          "en": "Verified resupply map"
+        },
+        "collect_paths": [
+          "logistics.verified_water_pois_km",
+          "logistics.verified_food_pois_km"
+        ],
+        "run_models": [
+          "stage_demand",
+          "effort_decay",
+          "hydration_carry_plan",
+          "nutrition_pack_plan"
+        ],
+        "run_experts": [
+          "logistics",
+          "adventure"
+        ],
+        "next": "P5_risk"
+      },
+      {
+        "id": "P5_risk",
+        "title": {
+          "pl": "Sprzęt i samowystarczalność",
+          "en": "Equipment and self-sufficiency"
+        },
+        "collect_paths": [
+          "user.self_sufficiency_preference",
+          "equipment.repair_kit_minimum"
+        ],
+        "run_models": [],
+        "run_experts": [
+          "equipment",
+          "adventure",
+          "global"
+        ],
+        "next": "P6_refine"
+      },
+      {
+        "id": "P6_refine",
+        "title": {
+          "pl": "Doprecyzowanie (tryb zaawansowany)",
+          "en": "Advanced refine"
+        },
+        "when": {
+          "path": "wizard.mode",
+          "eq": "advanced"
+        },
+        "collect_paths": [
+          "user.sweat_rate_l_per_h",
+          "user.gi_tolerance_high_cho",
+          "route.climb_segments",
+          "event.has_time_limit",
+          "event.time_limit_hours",
+          "event.intermediate_controls_timed"
+        ],
+        "run_models": [
+          "stage_demand",
+          "hydration_carry_plan",
+          "nutrition_pack_plan",
+          "gi_risk_vs_cho_rate",
+          "time_margin_vs_limit"
+        ],
+        "run_experts": [
+          "ultra",
+          "race_strategy",
+          "nutrition"
+        ],
+        "next": "P_out"
+      },
+      {
+        "id": "P_out",
+        "title": {
+          "pl": "Złożenie wyniku silnika",
+          "en": "Assemble engine output"
+        },
+        "run_models": [],
+        "run_experts": [
+          "global"
+        ],
+        "assemble": [
+          "stage_demand outputs",
+          "plan.hydration.*",
+          "plan.nutrition.*",
+          "fired rules with params",
+          "cleared recommendations where satisfied",
+          "suppressed early POI notes"
+        ]
+      }
+    ]
+  },
+  "parameter_catalog": {
+    "A_route_geometry": {
+      "label": {
+        "pl": "Trasa",
+        "en": "Route geometry"
+      },
+      "params": [
+        {
+          "path": "route.gpx_source",
+          "type": "file",
+          "required_at": "P0",
+          "source": "upload|none"
+        },
+        {
+          "path": "stage.planned_distance_km",
+          "type": "number",
+          "unit": "km",
+          "required_at": "P0"
+        },
+        {
+          "path": "stage.elevation_gain_m",
+          "type": "number",
+          "unit": "m",
+          "required_at": "P0"
+        },
+        {
+          "path": "stage.elevation_loss_m",
+          "type": "number",
+          "unit": "m",
+          "required_at": "optional"
+        },
+        {
+          "path": "route.dominant_surface",
+          "type": "enum",
+          "values": [
+            "paved",
+            "gravel",
+            "mixed",
+            "dirt",
+            "singletrack"
+          ],
+          "required_at": "P0"
+        },
+        {
+          "path": "route.unpaved_fraction",
+          "type": "number",
+          "range": [
+            0,
+            1
+          ],
+          "required_at": "P0_optional"
+        },
+        {
+          "path": "route.climb_segments",
+          "type": "array",
+          "item": "{start_km,end_km,gain_m,avg_grade_pct}",
+          "required_at": "P6_from_gpx"
+        },
+        {
+          "path": "route.start_name",
+          "type": "string",
+          "required_at": "optional"
+        },
+        {
+          "path": "route.end_name",
+          "type": "string",
+          "required_at": "optional"
+        }
+      ]
+    },
+    "B_trip_intent": {
+      "label": {
+        "pl": "Cel i format wyprawy",
+        "en": "Trip intent"
+      },
+      "params": [
+        {
+          "path": "wizard.mode",
+          "type": "enum",
+          "values": [
+            "short",
+            "advanced"
+          ],
+          "required_at": "P0"
+        },
+        {
+          "path": "profile.type",
+          "type": "enum",
+          "values": [
+            "bikepacking",
+            "ultra",
+            "brevet",
+            "road",
+            "exploratory"
+          ],
+          "required_at": "P0"
+        },
+        {
+          "path": "trip.horizon",
+          "type": "enum",
+          "values": [
+            "single_day",
+            "multi_day"
+          ],
+          "required_at": "P0"
+        },
+        {
+          "path": "trip.days_count",
+          "type": "integer",
+          "required_at": "P2_if_multi"
+        },
+        {
+          "path": "event.has_time_limit",
+          "type": "boolean",
+          "required_at": "P2_optional"
+        },
+        {
+          "path": "event.time_limit_hours",
+          "type": "number",
+          "unit": "h",
+          "required_at": "if_time_limit"
+        },
+        {
+          "path": "event.intermediate_controls_timed",
+          "type": "boolean",
+          "required_at": "if_brevet"
+        }
+      ]
+    },
+    "C_rider_profile": {
+      "label": {
+        "pl": "Profil kolarza",
+        "en": "Rider profile"
+      },
+      "params": [
+        {
+          "path": "user.experience_level",
+          "type": "enum",
+          "values": [
+            "beginner",
+            "intermediate",
+            "advanced",
+            "elite"
+          ],
+          "required_at": "P0"
+        },
+        {
+          "path": "user.multi_day_experience",
+          "type": "enum",
+          "values": [
+            false,
+            "limited",
+            true
+          ],
+          "required_at": "P0"
+        },
+        {
+          "path": "user.bikepacking_experience",
+          "type": "boolean",
+          "required_at": "P1_if_bikepacking"
+        },
+        {
+          "path": "user.ultra_experience",
+          "type": "boolean",
+          "required_at": "optional"
+        },
+        {
+          "path": "user.typical_distance_km",
+          "type": "number",
+          "unit": "km",
+          "required_at": "P0"
+        },
+        {
+          "path": "user.typical_speed_kmh",
+          "type": "number",
+          "unit": "km/h",
+          "required_at": "P0"
+        },
+        {
+          "path": "user.night_riding_tolerance",
+          "type": "enum",
+          "values": [
+            "none",
+            "limited",
+            "high"
+          ],
+          "required_at": "optional"
+        }
+      ]
+    },
+    "D_body_bike_load": {
+      "label": {
+        "pl": "Masy (ciało–rower–bagaż)",
+        "en": "Body–bike–load"
+      },
+      "params": [
+        {
+          "path": "user.body_mass_kg",
+          "type": "number",
+          "unit": "kg",
+          "required_at": "P1_optional"
+        },
+        {
+          "path": "user.bike_type",
+          "type": "enum",
+          "values": [
+            "road",
+            "gravel",
+            "mtb",
+            "touring",
+            "hybrid",
+            "other"
+          ],
+          "required_at": "P0"
+        },
+        {
+          "path": "user.bike_mass_kg",
+          "type": "number",
+          "unit": "kg",
+          "required_at": "P1_optional"
+        },
+        {
+          "path": "user.luggage_mass_kg",
+          "type": "number",
+          "unit": "kg",
+          "required_at": "P1_if_loaded"
+        },
+        {
+          "path": "user.total_system_mass_kg",
+          "type": "number",
+          "unit": "kg",
+          "required_at": "derived"
+        }
+      ]
+    },
+    "E_horizon_lodging_sleep": {
+      "label": {
+        "pl": "Multi-day / noclegi / sen",
+        "en": "Horizon / lodging / sleep"
+      },
+      "params": [
+        {
+          "path": "lodging.preference",
+          "type": "enum",
+          "values": [
+            "wild",
+            "camp",
+            "pension",
+            "mixed",
+            "unknown"
+          ],
+          "required_at": "P2_if_multi"
+        },
+        {
+          "path": "lodging.nights_km",
+          "type": "array",
+          "unit": "km",
+          "required_at": "P2_optional"
+        },
+        {
+          "path": "user.planned_sleep_h_per_24",
+          "type": "number",
+          "unit": "h",
+          "required_at": "P2_if_multi_optional"
+        },
+        {
+          "path": "ride.includes_night",
+          "type": "boolean",
+          "required_at": "optional"
+        }
+      ]
+    },
+    "F_environment": {
+      "label": {
+        "pl": "Warunki",
+        "en": "Environment"
+      },
+      "params": [
+        {
+          "path": "environment.temperature_c",
+          "type": "number",
+          "unit": "C",
+          "required_at": "P1_optional"
+        },
+        {
+          "path": "environment.alert",
+          "type": "enum",
+          "values": [
+            "none",
+            "heat",
+            "cold",
+            "storm",
+            "extreme"
+          ],
+          "required_at": "optional"
+        }
+      ]
+    },
+    "G_hydration_stock": {
+      "label": {
+        "pl": "Woda — zapas",
+        "en": "Hydration stock"
+      },
+      "params": [
+        {
+          "path": "user.water_carry_capacity_l",
+          "type": "number",
+          "unit": "L",
+          "required_at": "P3"
+        },
+        {
+          "path": "user.planned_water_start_l",
+          "type": "number",
+          "unit": "L",
+          "required_at": "P3_optional"
+        },
+        {
+          "path": "user.sweat_rate_l_per_h",
+          "type": "number",
+          "unit": "L/h",
+          "required_at": "P6_optional"
+        }
+      ]
+    },
+    "H_nutrition_stock": {
+      "label": {
+        "pl": "Żywienie — zapas",
+        "en": "Nutrition stock"
+      },
+      "params": [
+        {
+          "path": "user.nutrition_preference",
+          "type": "enum",
+          "values": [
+            "gels",
+            "mixed",
+            "real_food",
+            "unknown"
+          ],
+          "required_at": "P3_optional"
+        },
+        {
+          "path": "user.gel_cho_g",
+          "type": "number",
+          "unit": "g",
+          "required_at": "P3_if_known"
+        },
+        {
+          "path": "user.bar_cho_g",
+          "type": "number",
+          "unit": "g",
+          "required_at": "P3_if_known"
+        },
+        {
+          "path": "user.banana_cho_g",
+          "type": "number",
+          "unit": "g",
+          "required_at": "P3_if_known"
+        },
+        {
+          "path": "user.planned_pack.gels",
+          "type": "integer",
+          "required_at": "P3_if_known"
+        },
+        {
+          "path": "user.planned_pack.bananas",
+          "type": "integer",
+          "required_at": "P3_if_known"
+        },
+        {
+          "path": "user.planned_pack.bars",
+          "type": "integer",
+          "required_at": "P3_if_known"
+        },
+        {
+          "path": "user.planned_pack.other_cho_g",
+          "type": "number",
+          "unit": "g",
+          "required_at": "P3_if_known"
+        },
+        {
+          "path": "user.gi_tolerance_high_cho",
+          "type": "enum",
+          "values": [
+            "unknown",
+            "low",
+            "moderate",
+            "trained"
+          ],
+          "required_at": "P6_optional"
+        }
+      ]
+    },
+    "I_resupply_map": {
+      "label": {
+        "pl": "POI zweryfikowane",
+        "en": "Verified resupply map"
+      },
+      "params": [
+        {
+          "path": "logistics.verified_water_pois_km",
+          "type": "array",
+          "unit": "km",
+          "required_at": "P4_optional"
+        },
+        {
+          "path": "logistics.verified_food_pois_km",
+          "type": "array",
+          "unit": "km",
+          "required_at": "P4_optional"
+        },
+        {
+          "path": "logistics.supply_gap_km",
+          "type": "number",
+          "unit": "km",
+          "required_at": "derived_or_optional"
+        },
+        {
+          "path": "poi.verification_status",
+          "type": "enum",
+          "required_at": "per_poi"
+        },
+        {
+          "path": "poi.opening_hours",
+          "type": "string",
+          "required_at": "per_poi_optional"
+        },
+        {
+          "path": "poi.hours_confidence",
+          "type": "enum",
+          "values": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "required_at": "per_poi_optional"
+        }
+      ]
+    },
+    "J_equipment_risk": {
+      "label": {
+        "pl": "Sprzęt i ryzyko",
+        "en": "Equipment and risk"
+      },
+      "params": [
+        {
+          "path": "user.self_sufficiency_preference",
+          "type": "enum",
+          "values": [
+            "supported",
+            "semi",
+            "full"
+          ],
+          "required_at": "P5"
+        },
+        {
+          "path": "equipment.repair_kit_minimum",
+          "type": "boolean",
+          "required_at": "P5"
+        },
+        {
+          "path": "equipment.critical_mechanical",
+          "type": "enum",
+          "required_at": "runtime_only"
+        }
+      ]
+    },
+    "K_derived_stage_demand": {
+      "label": {
+        "pl": "Wyjście: stage_demand",
+        "en": "Output: stage_demand"
+      },
+      "params": [
+        {
+          "path": "stage.estimated_time_hours",
+          "unit": "h"
+        },
+        {
+          "path": "stage.climb_load_m",
+          "unit": "m"
+        },
+        {
+          "path": "stage.steep_climb_km",
+          "unit": "km"
+        },
+        {
+          "path": "stage.relative_effort_factor"
+        },
+        {
+          "path": "stage.energy_kj_proxy",
+          "unit": "kJ"
+        },
+        {
+          "path": "stage.cho_target_g_per_h_operational",
+          "unit": "g/h"
+        },
+        {
+          "path": "stage.fluid_target_l_per_h_operational",
+          "unit": "L/h"
+        }
+      ]
+    },
+    "L_derived_hydration_plan": {
+      "label": {
+        "pl": "Wyjście: plan hydratacji",
+        "en": "Output: hydration plan"
+      },
+      "params": [
+        {
+          "path": "plan.hydration.target_l_per_h"
+        },
+        {
+          "path": "plan.hydration.stage_need_l"
+        },
+        {
+          "path": "plan.hydration.recommended_start_l"
+        },
+        {
+          "path": "plan.hydration.coverage_hours_from_start"
+        },
+        {
+          "path": "plan.hydration.coverage_km_from_start"
+        },
+        {
+          "path": "plan.hydration.resupply_needed_by_km"
+        },
+        {
+          "path": "plan.hydration.satisfied"
+        }
+      ]
+    },
+    "M_derived_nutrition_plan": {
+      "label": {
+        "pl": "Wyjście: plan żywienia",
+        "en": "Output: nutrition plan"
+      },
+      "params": [
+        {
+          "path": "plan.nutrition.mode",
+          "values": [
+            "pack",
+            "buffer"
+          ]
+        },
+        {
+          "path": "plan.nutrition.target_cho_g_per_h"
+        },
+        {
+          "path": "plan.nutrition.stage_cho_need_g"
+        },
+        {
+          "path": "plan.nutrition.pack_cho_g"
+        },
+        {
+          "path": "plan.nutrition.recommended_start_cho_g"
+        },
+        {
+          "path": "plan.nutrition.suggested_pack"
+        },
+        {
+          "path": "plan.nutrition.feeding_schedule_hint"
+        },
+        {
+          "path": "plan.nutrition.coverage_km_from_start"
+        },
+        {
+          "path": "plan.nutrition.resupply_needed_by_km"
+        },
+        {
+          "path": "plan.nutrition.gel_cho_g_used"
+        },
+        {
+          "path": "plan.nutrition.used_default_gel_cho"
+        },
+        {
+          "path": "plan.nutrition.satisfied"
+        }
+      ]
+    },
+    "N_derived_risk_and_race": {
+      "label": {
+        "pl": "Wyjście: ryzyko / event",
+        "en": "Output: risk / event"
+      },
+      "params": [
+        {
+          "path": "plan.gi.risk_band",
+          "values": [
+            "low",
+            "elevated",
+            "high"
+          ]
+        },
+        {
+          "path": "race.time_margin_hours"
+        },
+        {
+          "path": "race.margin_status"
+        },
+        {
+          "path": "engine.fired_rules"
+        },
+        {
+          "path": "engine.active_recommendations"
+        },
+        {
+          "path": "engine.cleared_recommendations"
+        }
+      ]
+    }
+  },
+  "engine_contract": {
+    "walk": "For phase in decision_tree.phases (respect when/branch): merge new answers → run_models in order → evaluate rules for run_experts → apply suppression → continue",
+    "short_mode": "After P0/P1/P3 essentials, fill defaults_short from wizard_questions.json, skip P6 unless user opens advanced",
+    "output": {
+      "stage_demand": "required",
+      "plan.hydration": "required after P3",
+      "plan.nutrition": "required after P3",
+      "recommendations": "rules with satisfied not clearing them",
+      "suppressed": "list"
+    }
+  },
+  "i18n": {
+    "default_locale": "pl",
+    "supported_locales": [
+      "pl",
+      "en"
+    ],
+    "resolution": "For any field that is an object with locale keys (pl/en), PHP picks $field[$locale] ?? $field['en'] ?? $field['pl'] ?? first string value. Flat English-only strings are treated as en until migrated.",
+    "message_keys": "Primary UX strings live under recommendation_catalog.items.*.user_facing_template.{pl|en}",
+    "severity_labels": {
+      "critical": {
+        "pl": "Krytyczne",
+        "en": "Critical"
+      },
+      "warning": {
+        "pl": "Ostrzeżenie",
+        "en": "Warning"
+      },
+      "recommendation": {
+        "pl": "Rekomendacja",
+        "en": "Recommendation"
+      },
+      "info": {
+        "pl": "Informacja",
+        "en": "Info"
+      }
+    },
+    "phase_labels": {
+      "P0_seed": {
+        "pl": "Trasa + cel wyprawy + zgrubny profil",
+        "en": "Route + intent + coarse profile"
+      },
+      "P1_load": {
+        "pl": "Masa ciała, rower, bagaż, pojemność wody",
+        "en": "Body–bike–luggage–water capacity"
+      },
+      "P2_multi": {
+        "pl": "Gałąź multi-day (dni, noclegi, sen)",
+        "en": "Multi-day branch"
+      },
+      "P3_stock": {
+        "pl": "Zapas na starcie: woda i żywienie",
+        "en": "Start stock: water + nutrition"
+      },
+      "P4_pois": {
+        "pl": "Zweryfikowane punkty uzupełnienia na trasie",
+        "en": "Verified resupply map"
+      },
+      "P5_risk": {
+        "pl": "Sprzęt i samowystarczalność",
+        "en": "Equipment and self-sufficiency"
+      },
+      "P6_refine": {
+        "pl": "Doprecyzowanie (tryb zaawansowany)",
+        "en": "Advanced refine"
+      },
+      "P_out": {
+        "pl": "Złożenie wyniku silnika",
+        "en": "Assemble engine output"
+      }
+    }
+  },
+  "formula_dsl": {
+    "description": {
+      "pl": "Bezpieczny podzbiór wyrażeń. PHP podstawia zmienne z kontekstu i stałe z modelu; nie evaluje dowolnego kodu.",
+      "en": "Safe expression subset. PHP substitutes context vars and model constants; no arbitrary code eval."
+    },
+    "allowed_ops": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "min",
+      "max",
+      "clamp",
+      "gt",
+      "gte",
+      "lt",
+      "lte",
+      "if"
+    ],
+    "functions": {
+      "min": "min(a,b,...)",
+      "max": "max(a,b,...)",
+      "clamp": "clamp(x, lo, hi) => min(max(x,lo),hi)",
+      "if": "if(cond, a, b)"
+    }
+  }
+}

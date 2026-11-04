@@ -1,0 +1,1416 @@
+{
+  "meta": {
+    "id": "ridemore_trip_wizard",
+    "version": "0.8.1",
+    "kb_version_target": "0.6.1-research",
+    "language_default": "pl",
+    "description": "Pytania wizarda zbierające dane wejściowe do silnika RideMore (profil, trasa, woda, żywienie, sprzęt). Odpowiedzi mapowane na data_dictionary / planning models. Tryb short/advanced na starcie; short stosuje defaults_short.",
+    "output_context_root": "wizard_answers → nested paths used by rule engine"
+  },
+  "steps": [
+    {
+      "id": "step_mode",
+      "order": 0,
+      "title": {
+        "pl": "Tryb wizarda",
+        "en": "Wizard mode"
+      },
+      "description": {
+        "pl": "Skrócony = mniej pytań, reszta wartości domyślnych. Zaawansowany = pełna kontrola nad danymi wejściowymi modeli.",
+        "en": "Short = fewer questions, defaults for the rest. Advanced = full control over model inputs."
+      }
+    },
+    {
+      "id": "step_profile",
+      "order": 1,
+      "title": {
+        "pl": "Profil i doświadczenie",
+        "en": "Profile and experience"
+      },
+      "description": {
+        "pl": "Kim jesteś jako rowerzysta na tę wyprawę.",
+        "en": "Your rider profile for this trip."
+      }
+    },
+    {
+      "id": "step_route",
+      "order": 2,
+      "title": {
+        "pl": "Trasa i etap",
+        "en": "Route and stage"
+      },
+      "description": {
+        "pl": "Dane z GPX lub ręczne. Silnik użyje dystansu, przewyższenia i nawierzchni.",
+        "en": "From GPX or manual entry."
+      }
+    },
+    {
+      "id": "step_hydration",
+      "order": 3,
+      "title": {
+        "pl": "Woda i hydratacja",
+        "en": "Water and hydration"
+      },
+      "description": {
+        "pl": "Ile możesz zabrać i czy znasz swój pot.",
+        "en": "Carry capacity and optional sweat rate."
+      }
+    },
+    {
+      "id": "step_nutrition",
+      "order": 4,
+      "title": {
+        "pl": "Żywienie na rowerze",
+        "en": "On-bike nutrition"
+      },
+      "description": {
+        "pl": "Preferencje i realna zawartość żeli / planowany zapas.",
+        "en": "Preferences, gel CHO, planned pack."
+      }
+    },
+    {
+      "id": "step_equipment_logistics",
+      "order": 5,
+      "title": {
+        "pl": "Sprzęt i logistyka",
+        "en": "Equipment and logistics"
+      },
+      "description": {
+        "pl": "Bagaż, rower, punkty po drodze.",
+        "en": "Luggage, bike, on-route POIs."
+      }
+    },
+    {
+      "id": "step_event",
+      "order": 6,
+      "title": {
+        "pl": "Event / limit czasu (opcjonalnie)",
+        "en": "Event / time limit (optional)"
+      },
+      "description": {
+        "pl": "Brevet, ultramaraton, limit organizatora.",
+        "en": "Brevet, ultra, organizer cutoff."
+      }
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_wizard_mode",
+      "step": "step_mode",
+      "order": 1,
+      "path": "wizard.mode",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Jak chcesz przejść konfigurację?",
+        "en": "How do you want to configure the trip?"
+      },
+      "help": {
+        "pl": "Skrócona wersja pyta tylko o najważniejsze rzeczy i podstawia bezpieczne wartości domyślne (możesz je potem zmienić). Zaawansowana zbiera pełne dane pod modele wody i żywienia.",
+        "en": "Short asks only essentials and applies safe defaults. Advanced collects full inputs for hydration and nutrition models."
+      },
+      "options": [
+        {
+          "value": "short",
+          "label": {
+            "pl": "Skrócona — szybko, z domyślnymi założeniami",
+            "en": "Short — fast, with defaults"
+          },
+          "description": {
+            "pl": "Pytamy o typ wyprawy, dystans, przewyższenie, prędkość, wodę na start, preferencję jedzenia i ile żeli bierzesz. Reszta z defaults.",
+            "en": "We ask trip type, distance, elevation, speed, start water, food preference and gel count. Rest from defaults."
+          }
+        },
+        {
+          "value": "advanced",
+          "label": {
+            "pl": "Zaawansowana — pełne pytania",
+            "en": "Advanced — full questionnaire"
+          },
+          "description": {
+            "pl": "Wszystkie kroki: pot, g CHO w żelu, POI, bagaż, limit czasu, GI itd.",
+            "en": "All steps: sweat rate, gel CHO grams, POIs, luggage, time limit, GI, etc."
+          }
+        }
+      ]
+    },
+    {
+      "id": "q_profile_type",
+      "step": "step_profile",
+      "order": 10,
+      "path": "profile.type",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Jaki to rodzaj wyprawy?",
+        "en": "What kind of trip is this?"
+      },
+      "options": [
+        {
+          "value": "bikepacking",
+          "label": {
+            "pl": "Bikepacking / touring",
+            "en": "Bikepacking / touring"
+          }
+        },
+        {
+          "value": "ultra",
+          "label": {
+            "pl": "Ultra / self-supported race",
+            "en": "Ultra / self-supported race"
+          }
+        },
+        {
+          "value": "brevet",
+          "label": {
+            "pl": "Brevet / randonneuring",
+            "en": "Brevet / randonneuring"
+          }
+        },
+        {
+          "value": "road",
+          "label": {
+            "pl": "Jednodniowa szosa / trening",
+            "en": "Single-day road / training"
+          }
+        },
+        {
+          "value": "exploratory",
+          "label": {
+            "pl": "Eksploracyjna / niepewna logistyka",
+            "en": "Exploratory / uncertain logistics"
+          }
+        }
+      ],
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_experience_level",
+      "step": "step_profile",
+      "order": 20,
+      "path": "user.experience_level",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Poziom doświadczenia kolarskiego?",
+        "en": "Cycling experience level?"
+      },
+      "options": [
+        {
+          "value": "beginner",
+          "label": {
+            "pl": "Początkujący",
+            "en": "Beginner"
+          }
+        },
+        {
+          "value": "intermediate",
+          "label": {
+            "pl": "Średniozaawansowany",
+            "en": "Intermediate"
+          }
+        },
+        {
+          "value": "advanced",
+          "label": {
+            "pl": "Zaawansowany",
+            "en": "Advanced"
+          }
+        },
+        {
+          "value": "elite",
+          "label": {
+            "pl": "Elita / zawodowiec",
+            "en": "Elite"
+          }
+        }
+      ],
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_multi_day_experience",
+      "step": "step_profile",
+      "order": 30,
+      "path": "user.multi_day_experience",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Czy jechałeś już multi-day (kilka dni z rzędu)?",
+        "en": "Have you done multi-day riding before?"
+      },
+      "options": [
+        {
+          "value": false,
+          "label": {
+            "pl": "Nie, pierwszy raz",
+            "en": "No, first time"
+          }
+        },
+        {
+          "value": "limited",
+          "label": {
+            "pl": "Tak, ale mało / dawno",
+            "en": "Yes, but limited"
+          }
+        },
+        {
+          "value": true,
+          "label": {
+            "pl": "Tak, regularnie",
+            "en": "Yes, regularly"
+          }
+        }
+      ],
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_bikepacking_experience",
+      "step": "step_profile",
+      "order": 40,
+      "path": "user.bikepacking_experience",
+      "type": "boolean",
+      "required": true,
+      "label": {
+        "pl": "Czy masz doświadczenie w bikepackingu (bagaż na rowerze, noclegi w trasie)?",
+        "en": "Bikepacking experience?"
+      },
+      "show_if": {
+        "and": [
+          {
+            "path": "wizard.mode",
+            "eq": "advanced"
+          },
+          {
+            "path": "profile.type",
+            "in": [
+              "bikepacking",
+              "exploratory",
+              "ultra"
+            ]
+          }
+        ]
+      },
+      "modes": [
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_typical_distance_km",
+      "step": "step_profile",
+      "order": 50,
+      "path": "user.typical_distance_km",
+      "type": "number",
+      "unit": "km",
+      "required": true,
+      "label": {
+        "pl": "Jaki dystans zwykle robisz w jeden dzień jazdy?",
+        "en": "Typical single-day distance?"
+      },
+      "min": 10,
+      "max": 400,
+      "placeholder": {
+        "pl": "np. 55",
+        "en": "e.g. 55"
+      },
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_typical_speed_kmh",
+      "step": "step_profile",
+      "order": 60,
+      "path": "user.typical_speed_kmh",
+      "type": "number",
+      "unit": "km/h",
+      "required": true,
+      "label": {
+        "pl": "Twoja typowa średnia prędkość na podobnej nawierzchni (z postojami lub bez — jak planujesz etap)?",
+        "en": "Typical average speed on similar surface?"
+      },
+      "min": 8,
+      "max": 40,
+      "placeholder": {
+        "pl": "np. 18",
+        "en": "e.g. 18"
+      },
+      "help": {
+        "pl": "Silnik użyje tego do szacunku czasu i km zasięgu wody/jedzenia.",
+        "en": "Used for time and resupply km estimates."
+      },
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_body_mass_kg",
+      "step": "step_profile",
+      "order": 70,
+      "path": "user.body_mass_kg",
+      "type": "number",
+      "unit": "kg",
+      "required": false,
+      "label": {
+        "pl": "Masa ciała (kg)?",
+        "en": "Body mass (kg)?"
+      },
+      "min": 40,
+      "max": 150,
+      "help": {
+        "pl": "Opcjonalne. Potrzebne m.in. do progu ~2% utraty masy (hydratacja).",
+        "en": "Optional. Used e.g. for ~2% body-mass dehydration context."
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_planned_sleep_h",
+      "step": "step_profile",
+      "order": 80,
+      "path": "user.planned_sleep_h_per_24",
+      "type": "number",
+      "unit": "h",
+      "required": false,
+      "label": {
+        "pl": "Ile godzin snu na dobę planujesz w trakcie wyprawy?",
+        "en": "Planned sleep hours per 24 h?"
+      },
+      "min": 0,
+      "max": 12,
+      "show_if": {
+        "and": [
+          {
+            "path": "wizard.mode",
+            "eq": "advanced"
+          },
+          {
+            "path": "profile.type",
+            "in": [
+              "ultra",
+              "brevet",
+              "bikepacking",
+              "exploratory"
+            ]
+          }
+        ]
+      },
+      "modes": [
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_bike_type",
+      "step": "step_profile",
+      "order": 90,
+      "path": "user.bike_type",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Jaki rower?",
+        "en": "Bike type?"
+      },
+      "options": [
+        {
+          "value": "gravel",
+          "label": {
+            "pl": "Gravel",
+            "en": "Gravel"
+          }
+        },
+        {
+          "value": "road",
+          "label": {
+            "pl": "Szosa",
+            "en": "Road"
+          }
+        },
+        {
+          "value": "mtb",
+          "label": {
+            "pl": "MTB",
+            "en": "MTB"
+          }
+        },
+        {
+          "value": "touring",
+          "label": {
+            "pl": "Touring / trekking",
+            "en": "Touring"
+          }
+        },
+        {
+          "value": "hybrid",
+          "label": {
+            "pl": "Hybrid",
+            "en": "Hybrid"
+          }
+        },
+        {
+          "value": "other",
+          "label": {
+            "pl": "Inny",
+            "en": "Other"
+          }
+        }
+      ],
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_gpx_upload",
+      "step": "step_route",
+      "order": 10,
+      "path": "route.gpx_source",
+      "type": "file",
+      "accept": [
+        ".gpx"
+      ],
+      "required": false,
+      "label": {
+        "pl": "Wgraj plik GPX trasy (opcjonalnie)",
+        "en": "Upload GPX (optional)"
+      },
+      "help": {
+        "pl": "Jeśli podasz GPX, dystans i przewyższenie można wyliczyć automatycznie.",
+        "en": "Distance and elevation can be derived from GPX."
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_stage_distance_km",
+      "step": "step_route",
+      "order": 20,
+      "path": "stage.planned_distance_km",
+      "type": "number",
+      "unit": "km",
+      "required": true,
+      "label": {
+        "pl": "Dystans etapu (km)",
+        "en": "Stage distance (km)"
+      },
+      "min": 5,
+      "max": 1200,
+      "fill_from": "route.gpx_distance_km",
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_stage_elevation_m",
+      "step": "step_route",
+      "order": 30,
+      "path": "stage.elevation_gain_m",
+      "type": "number",
+      "unit": "m",
+      "required": true,
+      "label": {
+        "pl": "Suma podjazdów (m)",
+        "en": "Elevation gain (m)"
+      },
+      "min": 0,
+      "max": 20000,
+      "fill_from": "route.gpx_elevation_gain_m",
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_unpaved_fraction",
+      "step": 0.05,
+      "order": 40,
+      "path": "route.unpaved_fraction",
+      "type": "number",
+      "unit": "0-1",
+      "required": false,
+      "label": {
+        "pl": "Jaka część trasy to nieasfalt (0–1)? np. 0.55 = 55%",
+        "en": "Unpaved fraction 0–1?"
+      },
+      "min": 0,
+      "max": 1,
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_dominant_surface",
+      "step": "step_route",
+      "order": 50,
+      "path": "route.dominant_surface",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Dominująca nawierzchnia?",
+        "en": "Dominant surface?"
+      },
+      "options": [
+        {
+          "value": "paved",
+          "label": {
+            "pl": "Asfalt",
+            "en": "Paved"
+          }
+        },
+        {
+          "value": "gravel",
+          "label": {
+            "pl": "Gravel / szuter",
+            "en": "Gravel"
+          }
+        },
+        {
+          "value": "mixed",
+          "label": {
+            "pl": "Mieszana",
+            "en": "Mixed"
+          }
+        },
+        {
+          "value": "singletrack",
+          "label": {
+            "pl": "Singletrack / MTB",
+            "en": "Singletrack"
+          }
+        },
+        {
+          "value": "dirt",
+          "label": {
+            "pl": "Ziemia / polne",
+            "en": "Dirt"
+          }
+        }
+      ],
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_estimated_time_hours",
+      "step": "step_route",
+      "order": 60,
+      "path": "ride.estimated_time_hours",
+      "type": "number",
+      "unit": "h",
+      "required": false,
+      "label": {
+        "pl": "Szacowany czas jazdy etapu (h) — zostaw puste, policzy silnik",
+        "en": "Estimated moving time (h) — leave empty to auto-estimate"
+      },
+      "min": 0.5,
+      "max": 72,
+      "help": {
+        "pl": "Jeśli puste: dystans / typowa prędkość + korekty.",
+        "en": "If empty: distance/speed + adjustments."
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_temperature_c",
+      "step": "step_route",
+      "order": 70,
+      "path": "environment.temperature_c",
+      "type": "number",
+      "unit": "°C",
+      "required": false,
+      "label": {
+        "pl": "Spodziewana temperatura powietrza (°C)?",
+        "en": "Expected air temperature (°C)?"
+      },
+      "min": -20,
+      "max": 45,
+      "help": {
+        "pl": "Wpływa na operacyjny mnożnik hydratacji.",
+        "en": "Affects operational hydration multiplier."
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_water_capacity_l",
+      "step": 0.1,
+      "order": 10,
+      "path": "user.water_carry_capacity_l",
+      "type": "number",
+      "unit": "L",
+      "required": true,
+      "label": {
+        "pl": "Ile litrów wody możesz realnie zabrać na start (bidony + bukłak)?",
+        "en": "How many litres can you carry at start?"
+      },
+      "min": 0.3,
+      "max": 8,
+      "placeholder": {
+        "pl": "np. 2.0",
+        "en": "e.g. 2.0"
+      },
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_planned_water_start_l",
+      "step": 0.1,
+      "order": 20,
+      "path": "user.planned_water_start_l",
+      "type": "number",
+      "unit": "L",
+      "required": false,
+      "label": {
+        "pl": "Ile litrów faktycznie planujesz zabrać na start?",
+        "en": "How many litres will you actually start with?"
+      },
+      "min": 0,
+      "max": 8,
+      "help": {
+        "pl": "Jeśli puste = przyjmij pojemność z poprzedniego pytania.",
+        "en": "If empty, use carry capacity."
+      },
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_sweat_rate",
+      "step": 0.05,
+      "order": 30,
+      "path": "user.sweat_rate_l_per_h",
+      "type": "number",
+      "unit": "L/h",
+      "required": false,
+      "label": {
+        "pl": "Znasz swój pot (L/h z ważenia przed/po)?",
+        "en": "Do you know your sweat rate (L/h)?"
+      },
+      "min": 0.2,
+      "max": 3.0,
+      "help": {
+        "pl": "Jeśli nie znasz — silnik użyje domyślnego ~0,4–0,8 L/h (operacyjnie). Lepiej zmierzyć na treningu.",
+        "en": "If unknown, engine uses operational default ~0.4–0.8 L/h."
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_verified_water_pois",
+      "step": "step_hydration",
+      "order": 40,
+      "path": "logistics.verified_water_pois_km",
+      "type": "number_list",
+      "unit": "km",
+      "required": false,
+      "label": {
+        "pl": "Na których kilometrach masz **zweryfikowaną** wodę (sklep/źródło/kran)?",
+        "en": "At which km marks is water verified?"
+      },
+      "help": {
+        "pl": "Tylko punkty pewne. Nie dodawaj 'może jest sklep'. Lista np. 25, 48, 70",
+        "en": "Only verified points. e.g. 25, 48, 70"
+      },
+      "placeholder": {
+        "pl": "np. 30, 55",
+        "en": "e.g. 30, 55"
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_nutrition_preference",
+      "step": "step_nutrition",
+      "order": 10,
+      "path": "user.nutrition_preference",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Jak wolisz jeść na rowerze?",
+        "en": "On-bike fueling preference?"
+      },
+      "options": [
+        {
+          "value": "gels",
+          "label": {
+            "pl": "Głównie żele",
+            "en": "Mostly gels"
+          }
+        },
+        {
+          "value": "mixed",
+          "label": {
+            "pl": "Mix (żele + batony + real food)",
+            "en": "Mixed"
+          }
+        },
+        {
+          "value": "real_food",
+          "label": {
+            "pl": "Głównie zwykłe jedzenie",
+            "en": "Mostly real food"
+          }
+        },
+        {
+          "value": "unknown",
+          "label": {
+            "pl": "Jeszcze nie wiem",
+            "en": "Not sure yet"
+          }
+        }
+      ],
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_gel_cho_g",
+      "step": 1,
+      "order": 20,
+      "path": "user.gel_cho_g",
+      "type": "number",
+      "unit": "g",
+      "required": false,
+      "label": {
+        "pl": "Ile gramów węglowodanów ma **jeden** Twój żel?",
+        "en": "How many grams of CHO in **one** of your gels?"
+      },
+      "min": 15,
+      "max": 60,
+      "placeholder": {
+        "pl": "np. 22 albo 45 — z etykiety",
+        "en": "e.g. 22 or 45 — from label"
+      },
+      "help": {
+        "pl": "Opcjonalne. Jeśli nie wiesz czego będziesz jadł — pomiń. Silnik przyjmie normalne odżywianie (bufor CHO), bez konkretnych żeli.",
+        "en": "Optional. If you do not know products yet, skip. Engine assumes normal fueling (CHO buffer), not specific gels."
+      },
+      "show_if": {
+        "path": "user.nutrition_preference",
+        "in": [
+          "gels",
+          "mixed",
+          "unknown"
+        ]
+      },
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_bar_cho_g",
+      "step": "step_nutrition",
+      "order": 30,
+      "path": "user.bar_cho_g",
+      "type": "number",
+      "unit": "g",
+      "required": false,
+      "label": {
+        "pl": "Ile g CHO ma jeden Twój baton (jeśli używasz)?",
+        "en": "CHO grams per bar?"
+      },
+      "min": 10,
+      "max": 80,
+      "show_if": {
+        "and": [
+          {
+            "path": "wizard.mode",
+            "eq": "advanced"
+          },
+          {
+            "path": "user.nutrition_preference",
+            "in": [
+              "mixed",
+              "real_food",
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "modes": [
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_gi_tolerance",
+      "step": "step_nutrition",
+      "order": 40,
+      "path": "user.gi_tolerance_high_cho",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Jak znosi żołądek wyższe ilości żeli / cukrów na długich jazdach?",
+        "en": "GI tolerance for higher CHO rates?"
+      },
+      "options": [
+        {
+          "value": "unknown",
+          "label": {
+            "pl": "Nie wiem / nie testowałem",
+            "en": "Unknown / untested"
+          }
+        },
+        {
+          "value": "low",
+          "label": {
+            "pl": "Słabo — szybko mam problemy",
+            "en": "Low — issues quickly"
+          }
+        },
+        {
+          "value": "moderate",
+          "label": {
+            "pl": "Umiarkowanie",
+            "en": "Moderate"
+          }
+        },
+        {
+          "value": "trained",
+          "label": {
+            "pl": "Dobrze — ćwiczę gut training",
+            "en": "Trained"
+          }
+        }
+      ],
+      "help": {
+        "pl": "Nie blokuje Cię. Wpływa na pasmo ryzyka i propozycję stawek CHO.",
+        "en": "Does not block you; shifts risk band and CHO targets."
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_pack_gels",
+      "step": "step_nutrition",
+      "order": 50,
+      "path": "user.planned_pack.gels",
+      "type": "integer",
+      "required": false,
+      "label": {
+        "pl": "Ile żeli bierzesz na ten etap?",
+        "en": "How many gels for this stage?"
+      },
+      "min": 0,
+      "max": 40,
+      "default": 0,
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_pack_bananas",
+      "step": "step_nutrition",
+      "order": 60,
+      "path": "user.planned_pack.bananas",
+      "type": "integer",
+      "required": false,
+      "label": {
+        "pl": "Ile bananów?",
+        "en": "How many bananas?"
+      },
+      "min": 0,
+      "max": 20,
+      "default": 0,
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_pack_bars",
+      "step": "step_nutrition",
+      "order": 70,
+      "path": "user.planned_pack.bars",
+      "type": "integer",
+      "required": false,
+      "label": {
+        "pl": "Ile batonów?",
+        "en": "How many bars?"
+      },
+      "min": 0,
+      "max": 30,
+      "default": 0,
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_pack_other_cho",
+      "step": "step_nutrition",
+      "order": 80,
+      "path": "user.planned_pack.other_cho_g",
+      "type": "number",
+      "unit": "g",
+      "required": false,
+      "label": {
+        "pl": "Inne jedzenie — ile ok. gramów CHO łącznie (kanapki, bakalie…)?",
+        "en": "Other food — approx total CHO grams?"
+      },
+      "min": 0,
+      "max": 2000,
+      "default": 0,
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_verified_food_pois",
+      "step": "step_nutrition",
+      "order": 90,
+      "path": "logistics.verified_food_pois_km",
+      "type": "number_list",
+      "unit": "km",
+      "required": false,
+      "label": {
+        "pl": "Na których km masz **zweryfikowane** jedzenie (sklep/restauracja)?",
+        "en": "Verified food POI km marks?"
+      },
+      "placeholder": {
+        "pl": "np. 40, 65",
+        "en": "e.g. 40, 65"
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_luggage_mass",
+      "step": "step_equipment_logistics",
+      "order": 10,
+      "path": "user.luggage_mass_kg",
+      "type": "number",
+      "unit": "kg",
+      "required": false,
+      "label": {
+        "pl": "Masa bagażu na rowerze (kg)?",
+        "en": "Luggage mass on bike (kg)?"
+      },
+      "min": 0,
+      "max": 40,
+      "show_if": {
+        "and": [
+          {
+            "path": "wizard.mode",
+            "eq": "advanced"
+          },
+          {
+            "path": "profile.type",
+            "in": [
+              "bikepacking",
+              "exploratory",
+              "ultra",
+              "touring"
+            ]
+          }
+        ]
+      },
+      "modes": [
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_self_sufficiency",
+      "step": "step_equipment_logistics",
+      "order": 20,
+      "path": "user.self_sufficiency_preference",
+      "type": "single_choice",
+      "required": true,
+      "label": {
+        "pl": "Poziom samowystarczalności?",
+        "en": "Self-sufficiency level?"
+      },
+      "options": [
+        {
+          "value": "supported",
+          "label": {
+            "pl": "Wsparcie (auto, crew)",
+            "en": "Supported"
+          }
+        },
+        {
+          "value": "semi",
+          "label": {
+            "pl": "Semi — sklepy po drodze",
+            "en": "Semi — shops on route"
+          }
+        },
+        {
+          "value": "full",
+          "label": {
+            "pl": "Full self-supported",
+            "en": "Full self-supported"
+          }
+        }
+      ],
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_repair_kit_ok",
+      "step": "step_equipment_logistics",
+      "order": 30,
+      "path": "equipment.repair_kit_minimum",
+      "type": "boolean",
+      "required": true,
+      "label": {
+        "pl": "Masz minimalny zestaw naprawczy (dętka/łata, pompka/CO₂, multitool, łańcuch/spinka wg potrzeb)?",
+        "en": "Do you carry a minimum repair kit?"
+      },
+      "modes": [
+        "short",
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_has_time_limit",
+      "step": "step_event",
+      "order": 10,
+      "path": "event.has_time_limit",
+      "type": "boolean",
+      "required": true,
+      "label": {
+        "pl": "Czy etap/event ma limit czasu (cut-off / brevet)?",
+        "en": "Is there a time limit / cutoff?"
+      },
+      "modes": [
+        "advanced"
+      ],
+      "show_if": {
+        "path": "wizard.mode",
+        "eq": "advanced"
+      }
+    },
+    {
+      "id": "q_time_limit_hours",
+      "step": "step_event",
+      "order": 20,
+      "path": "event.time_limit_hours",
+      "type": "number",
+      "unit": "h",
+      "required": false,
+      "label": {
+        "pl": "Limit czasu (godziny)",
+        "en": "Time limit (hours)"
+      },
+      "min": 1,
+      "max": 200,
+      "show_if": {
+        "and": [
+          {
+            "path": "wizard.mode",
+            "eq": "advanced"
+          },
+          {
+            "path": "event.has_time_limit",
+            "eq": true
+          }
+        ]
+      },
+      "modes": [
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_intermediate_timed",
+      "step": "step_event",
+      "order": 30,
+      "path": "event.intermediate_controls_timed",
+      "type": "boolean",
+      "required": false,
+      "label": {
+        "pl": "Czy kontrole pośrednie są obowiązkowo timowane?",
+        "en": "Are intermediate controls strictly timed?"
+      },
+      "show_if": {
+        "and": [
+          {
+            "path": "wizard.mode",
+            "eq": "advanced"
+          },
+          {
+            "path": "event.has_time_limit",
+            "eq": true
+          }
+        ]
+      },
+      "modes": [
+        "advanced"
+      ]
+    },
+    {
+      "id": "q_trip_horizon",
+      "step": "step_profile",
+      "order": 15,
+      "path": "trip.horizon",
+      "type": "single_choice",
+      "required": true,
+      "modes": [
+        "short",
+        "advanced"
+      ],
+      "label": {
+        "pl": "Jedziesz jeden dzień czy kilka dni?",
+        "en": "Single day or multi-day?"
+      },
+      "options": [
+        {
+          "value": "single_day",
+          "label": {
+            "pl": "Jeden dzień / jeden etap",
+            "en": "Single day / one stage"
+          }
+        },
+        {
+          "value": "multi_day",
+          "label": {
+            "pl": "Kilka dni",
+            "en": "Multi-day"
+          }
+        }
+      ]
+    },
+    {
+      "id": "q_days_count",
+      "step": "step_profile",
+      "order": 16,
+      "path": "trip.days_count",
+      "type": "integer",
+      "required": false,
+      "modes": [
+        "short",
+        "advanced"
+      ],
+      "min": 2,
+      "max": 60,
+      "label": {
+        "pl": "Ile dni roughly?",
+        "en": "How many days roughly?"
+      },
+      "show_if": {
+        "path": "trip.horizon",
+        "eq": "multi_day"
+      }
+    },
+    {
+      "id": "q_lodging_preference",
+      "step": "step_profile",
+      "order": 17,
+      "path": "lodging.preference",
+      "type": "single_choice",
+      "required": false,
+      "modes": [
+        "advanced"
+      ],
+      "label": {
+        "pl": "Preferowane noclegi?",
+        "en": "Preferred overnight?"
+      },
+      "options": [
+        {
+          "value": "wild",
+          "label": {
+            "pl": "Dziko / biwak",
+            "en": "Wild camp"
+          }
+        },
+        {
+          "value": "camp",
+          "label": {
+            "pl": "Campingi",
+            "en": "Campsites"
+          }
+        },
+        {
+          "value": "pension",
+          "label": {
+            "pl": "Noclegi / pensjonaty",
+            "en": "Guesthouse / hotel"
+          }
+        },
+        {
+          "value": "mixed",
+          "label": {
+            "pl": "Mix",
+            "en": "Mixed"
+          }
+        },
+        {
+          "value": "unknown",
+          "label": {
+            "pl": "Jeszcze nie wiem",
+            "en": "Unknown"
+          }
+        }
+      ],
+      "show_if": {
+        "path": "trip.horizon",
+        "eq": "multi_day"
+      }
+    }
+  ],
+  "answer_example_demo_85km": {
+    "description": "Przykładowe odpowiedzi odpowiadające demo GPX 85 km (pierwszy bikepacking)",
+    "answers": {
+      "profile.type": "bikepacking",
+      "user.experience_level": "intermediate",
+      "user.multi_day_experience": false,
+      "user.bikepacking_experience": false,
+      "user.typical_distance_km": 55,
+      "user.typical_speed_kmh": 18,
+      "user.body_mass_kg": 78,
+      "user.planned_sleep_h_per_24": 7,
+      "user.bike_type": "gravel",
+      "stage.planned_distance_km": 85,
+      "stage.elevation_gain_m": 500,
+      "route.unpaved_fraction": 0.55,
+      "route.dominant_surface": "gravel",
+      "environment.temperature_c": 22,
+      "user.water_carry_capacity_l": 2.0,
+      "user.planned_water_start_l": 1.5,
+      "user.sweat_rate_l_per_h": null,
+      "logistics.verified_water_pois_km": [],
+      "user.nutrition_preference": "mixed",
+      "user.gel_cho_g": 22,
+      "user.bar_cho_g": 30,
+      "user.gi_tolerance_high_cho": "unknown",
+      "user.planned_pack": {
+        "gels": 2,
+        "bananas": 1,
+        "bars": 0,
+        "other_cho_g": 0
+      },
+      "logistics.verified_food_pois_km": [],
+      "user.luggage_mass_kg": 12,
+      "user.self_sufficiency_preference": "semi",
+      "equipment.repair_kit_minimum": true,
+      "event.has_time_limit": false,
+      "wizard.mode": "short"
+    }
+  },
+  "mapping_notes": {
+    "engine": "Każde path mapuje 1:1 na data_dictionary. Wizard UI zbiera answers[path]=value.",
+    "planning": "Po wizardsie uruchom compute_hydration_carry_plan i compute_nutrition_pack_plan zanim reguły nutrition z plan.satisfied.",
+    "gel_cho_g": "Wymagane praktycznie przy preference gels/mixed — bez tego default 25 g i used_default_gel_cho=true."
+  },
+  "defaults_short": {
+    "description": {
+      "pl": "Wartości wstawiane automatycznie w trybie skróconym, jeśli użytkownik nie podał własnych. Operacyjne, nie medyczne.",
+      "en": "Auto-filled in short mode when user leaves fields empty. Operational, not medical."
+    },
+    "values": {
+      "user.body_mass_kg": null,
+      "user.planned_sleep_h_per_24": 7,
+      "user.sweat_rate_l_per_h": null,
+      "user.gel_cho_g": 25,
+      "user.bar_cho_g": 30,
+      "user.banana_cho_g": 27,
+      "user.gi_tolerance_high_cho": "unknown",
+      "user.bikepacking_experience": false,
+      "route.unpaved_fraction": 0.3,
+      "environment.temperature_c": 20,
+      "logistics.verified_water_pois_km": [],
+      "logistics.verified_food_pois_km": [],
+      "user.luggage_mass_kg": 10,
+      "user.planned_pack.other_cho_g": 0,
+      "event.has_time_limit": false,
+      "event.time_limit_hours": null,
+      "event.intermediate_controls_timed": false,
+      "ride.estimated_time_hours": null,
+      "user.planned_pack": null
+    },
+    "notes": {
+      "user.gel_cho_g": "25 g only if user skipped gel question; mark plan.nutrition.used_default_gel_cho=true",
+      "user.sweat_rate_l_per_h": "null → hydration model uses 0.4–0.8 L/h operational default",
+      "logistics.verified_*_pois_km": "empty → no credit for resupply until user adds verified POIs",
+      "route.unpaved_fraction": "0.3 generic mixed; surface answer still collected in short mode",
+      "nutrition_unknown": "If pack not given, engine nutrition mode=buffer: assume normal CHO rate from stage_demand, start buffer ~4h equivalent, resupply by km — no gel SKU required."
+    }
+  },
+  "ui_logic": {
+    "on_mode_short": [
+      "Show only questions where modes contains 'short'",
+      "After submit, merge defaults_short.values for any missing path",
+      "Set wizard.used_defaults = list of paths filled from defaults"
+    ],
+    "on_mode_advanced": [
+      "Show all questions respecting their show_if",
+      "Do not apply defaults_short unless field explicitly empty and optional"
+    ]
+  },
+  "i18n": {
+    "default_locale": "pl",
+    "supported_locales": [
+      "pl",
+      "en"
+    ],
+    "resolution": "label[locale] ?? label.en ?? label.pl"
+  }
+}
