@@ -220,6 +220,10 @@ def compose_recommendations(kb, ctx, fired):
             if critical:
                 summary = "Ten plan w obecnej postaci wymaga zmiany przed rozpoczęciem jazdy."
                 details.append("Bardzo długi przejazd bez zaplanowanego snu przy poziomie początkującym wiąże się z istotnym ryzykiem zmęczenia i pogorszenia oceny sytuacji.")
+                template = kb.get("recommendation_catalog", {}).get("items", {}).get("no_sleep_long_inexperienced", {}).get("user_facing_template", {}).get(locale)
+                distance = ctx.get("stage", {}).get("planned_distance_km")
+                if isinstance(template, str):
+                    details.append(template.replace("{distance_km}", f"{distance:g}" if isinstance(distance, (int, float)) else "nieustalony"))
                 actions.append("Zmień plan: podziel wyprawę na etapy z zaplanowanym snem i regeneracją albo zrezygnuj z próby w obecnej formie.")
             elif first_trip:
                 summary = "Pierwszy bikepacking zwiększa niepewność planu — warto przyjąć bardziej zachowawcze etapy."
