@@ -197,13 +197,95 @@ def run_rules(kb,ctx):
     fired.sort(key=lambda x:(-x["priority"],x["id"]))
     return fired
 
+
+def compose_recommendations(kb, ctx, fired):
+    """Build deterministic user-facing cards from configured rule groups and derived values."""
+    spec = kb.get("recommendation_composition", {})
+    by_id = {r["id"]: r for r in fired}
+    locale = kb.get("i18n", {}).get("default_locale", "pl")
+    cards = []
+    for group in spec.get("groups", []):
+        sources = [by_id[rid] for rid in group.get("source_rule_ids", []) if rid in by_id]
+        if not sources:
+            continue
+        ids = [r["id"] for r in sources]
+        severity_rank = {"critical": 4, "warning": 3, "recommendation": 2, "info": 1}
+        severity = max((r.get("severity", "info") for r in sources), key=lambda s: severity_rank.get(s, 0))
+        title = group.get("title", {}).get(locale) or group.get("title", {}).get("en") or group["id"]
+        summary, details, actions, status = "", [], [], "known"
+        if group["id"] == "safety_and_staging":
+            critical = "ultra_sleep_zero_long_inexperienced" in ids
+            first_trip = "adv_first_bikepacking_uncertainty" in ids
+            long_vs_usual = "log_stage_length_vs_experience" in ids
+            if critical:
+                summary = "Ten plan w obecnej postaci wymaga zmiany przed rozpoczęciem jazdy."
+                details.append("Bardzo długi przejazd bez zaplanowanego snu przy poziomie początkującym wiąże się z istotnym ryzykiem zmęczenia i pogorszenia oceny sytuacji.")
+                actions.append("Zmień plan: podziel wyprawę na etapy z zaplanowanym snem i regeneracją albo zrezygnuj z próby w obecnej formie.")
+            elif first_trip:
+                summary = "Pierwszy bikepacking zwiększa niepewność planu — warto przyjąć bardziej zachowawcze etapy."
+                actions.append("Zaplanuj krótsze, możliwe do ukończenia etapy i zachowaj możliwość wcześniejszego zakończenia.")
+            if first_trip:
+                details.append("To pierwsza wyprawa tego typu lub doświadczenie w wyprawach wielodniowych jest ograniczone.")
+            if long_vs_usual:
+                typical = ctx.get("user", {}).get("typical_distance_km")
+                distance = ctx.get("stage", {}).get("planned_distance_km")
+                if isinstance(typical, (int, float)) and isinstance(distance, (int, float)):
+                    details.append(f"Planowany etap ({distance:g} km) jest dłuższy niż typowy dystans ({typical:g} km).")
+                    actions.append("Porównaj długość etapu z dotychczasowymi przejazdami; sama różnica nie oznacza, że trasa jest niemożliwa.")
+            if "ultra_sleep_low" in ids and not critical:
+                details.append("Zaplanowany sen jest niski według heurystyki wydarzenia; ten wskaźnik nie jest granicą bezpieczeństwa.")
+            details.append("Dokładny podział kilometrów, przewyższeń i noclegów wymaga profilu wysokościowego GPX, limitów oraz danych o dostępnych miejscach odpoczynku.")
+            status = "user_input_required"
+        elif group["id"] == "nutrition":
+            plan = ctx.get("plan", {}).get("nutrition", {})
+            need = plan.get("stage_cho_need_g")
+            mode = plan.get("mode")
+            if mode == "buffer":
+                summary = "Nie zadeklarowano konkretnego zapasu jedzenia — model nie może potwierdzić, że masz wystarczającą ilość na cały etap."
+                start = plan.get("recommended_start_cho_g")
+                if isinstance(start, (int, float)):
+                    details.append(f"Bufor jedzenia na start: około {start:.0f} g węglowodanów (CHO).")
+                status = "user_input_required"
+            else:
+                pack = plan.get("pack_cho_g")
+                if isinstance(pack, (int, float)) and isinstance(need, (int, float)):
+                    summary = f"Zadeklarowany zapas ({pack:.0f} g CHO) jest mniejszy od szacowanego zapotrzebowania etapu."
+                    details.append(f"Szacowane zapotrzebowanie etapu: około {need:.0f} g CHO.")
+                    details.append(f"Zadeklarowany zapas: {pack:.0f} g CHO.")
+                    status = "estimated"
+            if isinstance(need, (int, float)):
+                details.append(f"Szacowane zapotrzebowanie całego etapu: około {need:.0f} g CHO.")
+            km = plan.get("resupply_needed_by_km")
+            if isinstance(km, (int, float)):
+                details.append(f"Orientacyjny moment, od którego trzeba zaplanować uzupełnienie: około {km:.0f}. km; to nie potwierdza dostępności sklepu ani ilości jedzenia.")
+            details.append("Po podziale trasy zapotrzebowanie i zapas należy przeliczyć osobno dla każdego etapu.")
+            actions.append("Uzupełnij deklarację produktów i ilości albo wskaż potwierdzone punkty zakupu jedzenia.")
+        elif group["id"] == "hydration":
+            plan = ctx.get("plan", {}).get("hydration", {})
+            need, start, rate, km = (plan.get("stage_need_l"), plan.get("recommended_start_l"),
+                                    plan.get("target_l_per_h"), plan.get("resupply_needed_by_km"))
+            summary = "Zapas wody na starcie nie pokrywa szacowanego zapotrzebowania całego etapu."
+            if isinstance(need, (int, float)): details.append(f"Szacowane zapotrzebowanie etapu: około {need:.2f} l.")
+            if isinstance(start, (int, float)): details.append(f"Zadeklarowana ilość na start: {start:.2f} l.")
+            if isinstance(rate, (int, float)): details.append(f"Operacyjny cel uzupełniania płynów: około {rate:.2f} l/h; nie jest to pomiar indywidualnej potliwości.")
+            if isinstance(km, (int, float)): details.append(f"Uzupełnienie należy zaplanować najpóźniej w okolicy {km:.0f}. km. To punkt planistyczny, a nie potwierdzony punkt poboru wody.")
+            details.append("Sama obecność POI nie potwierdza dostępnej ilości wody ani możliwości uzupełnienia.")
+            actions.append("Dodaj zweryfikowane punkty wody i sprawdź ich dostępność oraz możliwość uzupełnienia odpowiedniej ilości.")
+            status = "estimated"
+        cards.append({"id": group["id"], "title": title, "severity": severity,
+                      "priority": group.get("priority", 0), "source_rule_ids": ids,
+                      "summary": summary, "details": details, "data_status": status, "actions": actions})
+    cards.sort(key=lambda c: (-c["priority"], c["id"]))
+    return cards
+
 def execute(kb, scenario):
     ctx=json.loads(json.dumps(scenario["input"]))
     model_trace=run_models(kb,ctx)
     recs=run_rules(kb,ctx)
+    composed=compose_recommendations(kb,ctx,recs)
     return {"scenario_id":scenario["id"],"knowledge_version":kb["meta"]["knowledge_version"],
             "derived":ctx,"model_trace":model_trace,"recommendations":recs,
-            "fired_rule_ids":[r["id"] for r in recs]}
+            "composed_recommendations":composed,"fired_rule_ids":[r["id"] for r in recs]}
 
 def main():
     p=argparse.ArgumentParser()
