@@ -40,7 +40,8 @@ class Formula:
     def resolve(self, node):
         if isinstance(node, ast.Constant): return node.value
         if isinstance(node, ast.Name):
-            if node.id in ("True","False","None"): return {"True":True,"False":False,"None":None}[node.id]
+            if node.id in ("True","False","None","null","true","false"): return {"True":True,"False":False,"None":None,"null":None,"true":True,"false":False}[node.id]
+            if node.id == "unknown": return "unknown"
             if node.id in self.local: return self.local[node.id]
             if node.id in self.constants: return self.constants[node.id]
             return get_path(self.ctx,node.id)
@@ -124,7 +125,7 @@ def run_models(kb, ctx):
     for mid in ordered:
         model=kb["models"][mid]; formulas=model.get("formulas",{})
         if not formulas: continue
-        constants=model.get("constants",{})
+        constants=flatten(model.get("constants",{}))
         # Assumptions used by formulas are promoted only as explicit JSON values.
         assumptions=model.get("assumptions",{})
         for key,val in assumptions.items():
