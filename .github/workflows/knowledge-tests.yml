@@ -1,0 +1,17 @@
+name: Knowledge contract tests
+
+on:
+  push:
+    branches: [main, "fix/**"]
+  pull_request:
+
+jobs:
+  knowledge-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run knowledge contract tests
+        run: python -m unittest discover -s tests -v
