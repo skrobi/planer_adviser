@@ -32,7 +32,7 @@ class KnowledgeContractTests(unittest.TestCase):
         external = {"poi", "conflict", "planned_stops_hours", "planned_sleep_hours"}
         missing = []
         for name, model in KB["models"].items():
-            for path in model.get("inputs", []):
+            for path in (model.get("inputs", []) if isinstance(model.get("inputs", []), list) else [v.get("source_path") for v in model.get("inputs", {}).values() if isinstance(v, dict) and v.get("source_path")]):
                 if path not in declared and path not in produced and path.split(".")[0] not in external:
                     missing.append(f"{name}:{path}")
         self.assertEqual(missing, [])
@@ -85,7 +85,7 @@ class ReferenceMathTests(unittest.TestCase):
     def test_stage_time_surface_and_elevation(self):
         distance, speed, surface_factor, gain = 60.0, 20.0, 0.88, 300.0
         result = distance / speed / surface_factor + gain / 1000 * 0.15
-        self.assertAlmostEqual(result, 3.5595454545, places=6)
+        self.assertAlmostEqual(result, 3.4540909091, places=6)
 
     def test_long_stage_cho_is_not_reduced_by_effort_decay(self):
         duration, target = 20.0, 60.0
