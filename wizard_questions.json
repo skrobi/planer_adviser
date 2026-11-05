@@ -38,7 +38,9 @@
       "required": "Only required when the requested calculation cannot proceed without the value and no trusted source or default is available.",
       "conditional": "Use ask_if_missing and show_if / required_when_shown; never ask again for an already supplied value.",
       "manual_poi_entry": "disabled",
-      "unknown_values": "Preserve null/unknown and report resulting uncertainty."
+      "unknown_values": "Preserve null/unknown and report resulting uncertainty.",
+      "ask_only_if_missing": true,
+      "ask_only_if_missing_note": "Renderer must prefill all trusted sources and ask only when the value is absent and materially affects the selected analysis."
     }
   },
   "steps": [
