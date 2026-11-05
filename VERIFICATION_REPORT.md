@@ -75,8 +75,8 @@ For this reference implementation, stage demand is allocated linearly by route d
 
 ## 14. Inventory ledger CI verification (2026-11-05)
 
-The latest PR #3 GitHub Actions run for commit `2bcebec699800878e5dfa358b11e397a6e9e4331` completed successfully:
-- Python unittest suite: **51 tests passed**.
+The latest PR #3 GitHub Actions run for commit `f1e567733dc2b85645bc798574d0fc36ba2d66ef` completed successfully:
+- Python unittest suite: **52 tests passed**.
 - Inventory ledger tests: 11 passed, covering stage carry-forward, CHO resupply, verified water refill, closed POI, estimated food quantity, confirmed loss, event ordering, shortage persistence and unknown propagation.
 - JSON-driven reference engine and scenario verifier: **10 passed, 0 failed**.
 
