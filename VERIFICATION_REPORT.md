@@ -35,3 +35,10 @@ GitHub Actions runs the same suite on pushes to main/fix branches and pull reque
 
 ## Scope of version 0.9.3
 This pass improves the safety framing and corrects effort-decay outputs. It does not yet resolve the known multi-stage nutrition/hydration accounting, POI capacity/opening-hours contract, or sleep allocation across multiple stages. Those remain a separate integration phase.
+
+
+## 10. Wizard UX contract – 2026-11-05
+
+The trip wizard is intentionally not a physiology questionnaire. Short mode is the default and has at most eight candidate questions; profile, activity history, route analysis and POI data must be prefilled before rendering. Sweat rate, body mass, GI tolerance, FTP, VO2max and sweat sodium are deferred to a future Advanced Trainer. Manual POI kilometre lists are removed. Unknown luggage mass is no longer replaced with a generic 10 kg assumption.
+
+The fields `ask_if_missing`, `required_when_missing` and `prefill_from` are declarative requirements for the future PHP wizard renderer. The current repository does not yet include that production renderer, so these tests validate the JSON contract rather than live UI behavior.
