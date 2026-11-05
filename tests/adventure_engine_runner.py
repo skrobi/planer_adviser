@@ -288,13 +288,251 @@ def compose_recommendations(kb, ctx, fired):
     cards.sort(key=lambda c: (-c["priority"], c["id"]))
     return cards
 
+
+def _inventory_event_confirmation(event, event_type, spec):
+    rule = spec.get("event_types", {}).get(event_type)
+    if not rule:
+        return False, "unsupported_event_type"
+    quantity = event.get("quantity")
+    if not isinstance(quantity, (int, float)) or isinstance(quantity, bool) or quantity <= 0:
+        return False, "missing_or_invalid_quantity"
+    for requirement in rule.get("requires", []):
+        if requirement == "verification_status in verified|official" and event.get("verification_status") not in ("verified", "official"):
+            return False, "poi_not_verified"
+        if requirement == "availability_status=confirmed_available" and event.get("availability_status") != "confirmed_available":
+            return False, "availability_not_confirmed"
+        if requirement == "quantity_status=confirmed" and event.get("quantity_status") != "confirmed":
+            return False, "quantity_not_confirmed"
+        if requirement not in ("verification_status in verified|official","availability_status=confirmed_available","quantity_status=confirmed","quantity>0"):
+            raise ValueError(f"Unsupported inventory requirement: {requirement}")
+    return True, None
+
+
+def _process_inventory_resource(stages, resource, initial_stock, spec):
+    stock = initial_stock if isinstance(initial_stock,(int,float)) and not isinstance(initial_stock,bool) and initial_stock >= 0 else None
+    rows=[]; total_shortage=0.0
+    need_key="water_l" if resource=="water_l" else "cho_g"
+    for stage in stages:
+        distance=stage.get("planned_distance_km",stage.get("distance_km"))
+        need_obj=stage.get("inventory_need",{})
+        demand=need_obj.get(need_key) if isinstance(need_obj,dict) else None
+        demand_ok=isinstance(demand,(int,float)) and not isinstance(demand,bool) and demand>=0
+        distance_ok=isinstance(distance,(int,float)) and not isinstance(distance,bool) and distance>0
+        opening=stock; shortage=0.0; additions=0.0; losses=0.0; event_rows=[]
+        valid=[]
+        events=stage.get("inventory_events",[])
+        for event in events if isinstance(events,list) else []:
+            if not isinstance(event,dict):
+                event_rows.append({"accepted":False,"reason":"invalid_event_shape"}); continue
+            typ=event.get("type")
+            rule=spec.get("event_types",{}).get(typ,{})
+            if rule.get("resource")!=resource: continue
+            km=event.get("route_km")
+            if not distance_ok or not isinstance(km,(int,float)) or isinstance(km,bool) or km<0 or km>distance:
+                event_rows.append({"event_id":event.get("event_id"),"accepted":False,"reason":"invalid_or_unverifiable_route_position"}); continue
+            accepted,reason=_inventory_event_confirmation(event,typ,spec)
+            valid.append((float(km),event,typ,accepted,reason))
+        valid.sort(key=lambda x:(x[0],str(x[1].get("event_id",""))))
+        cursor=0.0
+        for km,event,typ,accepted,reason in valid:
+            if demand_ok and distance_ok and stock is not None:
+                consumption=demand*(km-cursor)/distance
+                used=min(stock,consumption); stock-=used
+                shortage+=consumption-used; total_shortage+=consumption-used
+            else:
+                if not demand_ok: stock=None
+            cursor=km
+            if accepted and stock is not None and demand_ok:
+                qty=float(event["quantity"])
+                if typ in ("water_refill","cho_resupply"):
+                    stock+=qty; additions+=qty
+                else:
+                    loss=min(stock,qty); stock-=loss; losses+=loss
+            elif accepted:
+                stock=None
+            event_rows.append({"event_id":event.get("event_id"),"route_km":km,"type":typ,"quantity":event.get("quantity"),"accepted":accepted,"reason":reason,"stock_after_event":stock})
+        if demand_ok and distance_ok and stock is not None:
+            consumption=demand*(distance-cursor)/distance
+            used=min(stock,consumption); stock-=used
+            shortage+=consumption-used; total_shortage+=consumption-used
+        else:
+            stock=None
+        excluded_events=sum(1 for item in event_rows if not item.get("accepted",False))
+        status="shortage" if shortage>0 else ("insufficient_data" if opening is None or not demand_ok or not distance_ok else ("partial" if excluded_events else "complete"))
+        rows.append({"stage_id":stage.get("id"),"resource":resource,"opening_stock":opening,
+            "planned_demand":demand if demand_ok else None,"confirmed_resupply":additions,
+            "confirmed_losses":losses,"closing_stock":stock,"shortage":shortage,"status":status,
+            "demand_allocation":"linear_by_route_distance","events":event_rows})
+    return rows,total_shortage
+
+
+def run_inventory_ledger(kb,ctx):
+    """Execute the KB-defined ordered inventory ledger for water and CHO."""
+    spec=kb.get("stage5_contracts",{}).get("inventory_ledger")
+    trip=ctx.get("trip",{})
+    stages=trip.get("stage_sequence") if isinstance(trip,dict) else None
+    if not spec or not isinstance(stages,list) or not stages: return None
+    normalized=[]
+    for index, original in enumerate(stages, start=1):
+        stage=dict(original)
+        stage.setdefault("ordinal", stage.get("day", index))
+        stage.setdefault("id", f"stage_{stage['ordinal']}")
+        if "planned_distance_km" not in stage and "distance_km" in stage:
+            stage["planned_distance_km"]=stage["distance_km"]
+        normalized.append(stage)
+    stages=sorted(normalized,key=lambda s:(s.get("ordinal",0),str(s.get("id",""))))
+    start=trip.get("inventory_start",{})
+    water,water_short=_process_inventory_resource(stages,"water_l",start.get("water_l") if isinstance(start,dict) else None,spec)
+    cho,cho_short=_process_inventory_resource(stages,"cho_g",start.get("cho_g") if isinstance(start,dict) else None,spec)
+    rows=[{"stage_id":s.get("id"),"ordinal":s.get("ordinal"),"water":water[i],"nutrition":cho[i]} for i,s in enumerate(stages)]
+    statuses=[r[k]["status"] for r in rows for k in ("water","nutrition")]
+    overall=("insufficient_data" if "insufficient_data" in statuses else ("shortage" if "shortage" in statuses else ("partial" if "partial" in statuses else "complete")))
+    set_path(ctx,"plan.trip_accounting.inventory_ledger",rows)
+    set_path(ctx,"plan.trip_accounting.inventory_status",overall)
+    set_path(ctx,"plan.trip_accounting.inventory_shortage.water_l",water_short)
+    set_path(ctx,"plan.trip_accounting.inventory_shortage.cho_g",cho_short)
+    return {"status":overall,"stages":len(rows),"water_shortage_l":water_short,"cho_shortage_g":cho_short}
+
+
+
+def assess_poi_access(kb,ctx):
+    """Filter POIs using the normalized, source-backed access contract; never auto-credit inventory."""
+    spec=kb.get("stage5_contracts",{}).get("poi_access",{})
+    logistics=ctx.get("logistics",{})
+    candidates=logistics.get("poi_candidates",[]) if isinstance(logistics,dict) else []
+    details=[]; eligible=[]; excluded=[]; water_ids=[]; food_ids=[]; reasons=[]
+    if not isinstance(candidates,list):
+        candidates=[]
+    for poi in candidates:
+        if not isinstance(poi,dict):
+            excluded.append(None); reasons.append({"poi_id":None,"reason":"invalid_candidate_shape"}); continue
+        pid=poi.get("id")
+        poi_reasons=[]; resources=[]
+        if poi.get("verification_status") not in ("verified","official"):
+            poi_reasons.append("poi_not_verified")
+        if poi.get("freshness_status")!="fresh":
+            poi_reasons.append("poi_not_confirmed_fresh")
+        if poi.get("open_status_at_arrival")!="open_confirmed":
+            poi_reasons.append("not_confirmed_open_at_arrival")
+        route_km=poi.get("route_km")
+        detour=poi.get("detour_distance_km")
+        if not isinstance(route_km,(int,float)) or isinstance(route_km,bool) or route_km<0:
+            poi_reasons.append("route_position_unknown")
+        if not isinstance(detour,(int,float)) or isinstance(detour,bool) or detour<0:
+            poi_reasons.append("detour_distance_unknown")
+        base_ok=not poi_reasons
+        water=poi.get("water_volume_l")
+        water_capacity=poi.get("water_capacity_status",poi.get("capacity_status"))
+        if isinstance(water,(int,float)) and not isinstance(water,bool) and water>0 and water_capacity=="confirmed_sufficient" and base_ok:
+            resources.append("water"); water_ids.append(pid)
+        elif water is not None or poi.get("water_capacity_status") is not None:
+            reasons.append({"poi_id":pid,"resource":"water","reason":"water_quantity_or_capacity_not_confirmed"})
+        food=poi.get("food_cho_g")
+        food_capacity=poi.get("food_capacity_status",poi.get("capacity_status"))
+        if isinstance(food,(int,float)) and not isinstance(food,bool) and food>0 and food_capacity=="confirmed_sufficient" and base_ok:
+            resources.append("food"); food_ids.append(pid)
+        elif food is not None or poi.get("food_capacity_status") is not None:
+            reasons.append({"poi_id":pid,"resource":"food","reason":"food_cho_or_capacity_not_confirmed"})
+        if resources:
+            eligible.append(pid)
+        else:
+            excluded.append(pid)
+            for reason in poi_reasons:
+                reasons.append({"poi_id":pid,"reason":reason})
+            if not poi_reasons:
+                reasons.append({"poi_id":pid,"reason":"no_confirmed_supply_quantity"})
+        details.append({"poi_id":pid,"route_km":route_km,"detour_distance_km":detour,
+                        "arrival_time_local":poi.get("arrival_time_local"),
+                        "eligible_resources":resources,"base_requirements_confirmed":base_ok,
+                        "reasons":poi_reasons})
+    status="insufficient_data" if not candidates else ("confirmed" if eligible else "partial")
+    set_path(ctx,"plan.poi_access.status",status)
+    set_path(ctx,"plan.poi_access.eligible_poi_ids",eligible)
+    set_path(ctx,"plan.poi_access.excluded_poi_ids",excluded)
+    set_path(ctx,"plan.poi_access.reasons",reasons)
+    set_path(ctx,"plan.poi_access.candidate_details",details)
+    set_path(ctx,"plan.poi_access.confirmed_water_poi_ids",water_ids)
+    set_path(ctx,"plan.poi_access.confirmed_food_poi_ids",food_ids)
+    return {"status":status,"candidate_count":len(candidates),"eligible_count":len(eligible),
+            "confirmed_water_count":len(water_ids),"confirmed_food_count":len(food_ids)}
+
+
+
+def run_trip_accounting(kb,ctx):
+    """Aggregate canonical stage time without coercing unknown stops or sleep to zero."""
+    trip=ctx.get("trip",{})
+    stages=trip.get("stage_sequence") if isinstance(trip,dict) else None
+    if not isinstance(stages,list) or not stages:
+        return None
+    normalized=[]
+    for index,original in enumerate(stages,start=1):
+        stage=dict(original)
+        stage.setdefault("ordinal",stage.get("day",index))
+        stage.setdefault("id",f"stage_{stage['ordinal']}")
+        if "planned_distance_km" not in stage and "distance_km" in stage:
+            stage["planned_distance_km"]=stage["distance_km"]
+        if "estimated_moving_time_hours" not in stage:
+            if "estimated_moving_hours" in stage:
+                stage["estimated_moving_time_hours"]=stage["estimated_moving_hours"]
+            elif "estimated_time_hours" in stage:
+                stage["estimated_moving_time_hours"]=stage["estimated_time_hours"]
+        normalized.append(stage)
+    normalized.sort(key=lambda s:(s.get("ordinal",0),str(s.get("id",""))))
+    components=("moving","stops","sleep")
+    totals={}; subtotals={}; unknown_counts={}
+    rows=[]; load=[]
+    for component in components:
+        path={"moving":"estimated_moving_time_hours","stops":"planned_stops_hours","sleep":"planned_sleep_hours"}[component]
+        known=[s.get(path) for s in normalized if isinstance(s.get(path),(int,float)) and not isinstance(s.get(path),bool) and s.get(path)>=0]
+        unknown_counts[component]=len(normalized)-len(known)
+        subtotals[component]=sum(known)
+        totals[component]=subtotals[component] if unknown_counts[component]==0 else None
+    for stage in normalized:
+        moving=stage.get("estimated_moving_time_hours")
+        stops=stage.get("planned_stops_hours")
+        sleep=stage.get("planned_sleep_hours")
+        valid=lambda x:isinstance(x,(int,float)) and not isinstance(x,bool) and x>=0
+        elapsed=moving+stops+sleep if all(valid(x) for x in (moving,stops,sleep)) else None
+        rows.append({"stage_id":stage["id"],"ordinal":stage["ordinal"],
+            "moving_hours":moving if valid(moving) else None,
+            "stops_hours":stops if valid(stops) else None,
+            "sleep_hours":sleep if valid(sleep) else None,
+            "elapsed_hours":elapsed,
+            "missing_components":[name for name,val in (("moving",moving),("stops",stops),("sleep",sleep)) if not valid(val)]})
+        load.append({"stage_id":stage["id"],"ordinal":stage["ordinal"],
+            "distance_km":stage.get("planned_distance_km"),
+            "elevation_gain_m":stage.get("elevation_gain_m"),
+            "surface":stage.get("dominant_surface",stage.get("surface")),
+            "moving_hours":moving if valid(moving) else None,
+            "energy_kj_proxy":stage.get("energy_kj_proxy",stage.get("estimated_metabolic_energy_kj")),
+            "planned_sleep_hours":sleep if valid(sleep) else None,
+            "recovery_interpretation":"planned interval only; not a validated recovery score"})
+    all_complete=all(v==0 for v in unknown_counts.values())
+    any_known=any(unknown_counts[name] < len(normalized) for name in components)
+    completeness="complete" if all_complete else ("partial" if any_known else "insufficient_data")
+    elapsed=totals["moving"]+totals["stops"]+totals["sleep"] if all_complete else None
+    set_path(ctx,"trip.total_moving_hours",totals["moving"])
+    set_path(ctx,"trip.total_stops_hours",totals["stops"])
+    set_path(ctx,"trip.total_sleep_hours",totals["sleep"])
+    set_path(ctx,"trip.total_elapsed_hours",elapsed)
+    set_path(ctx,"trip.accounting_completeness",completeness)
+    set_path(ctx,"plan.trip_accounting.time_ledger",rows)
+    set_path(ctx,"plan.trip_accounting.known_subtotals",subtotals)
+    set_path(ctx,"plan.trip_accounting.load_ledger",load)
+    return {"completeness":completeness,"moving_hours":totals["moving"],
+            "stops_hours":totals["stops"],"sleep_hours":totals["sleep"],"elapsed_hours":elapsed}
+
+
 def execute(kb, scenario):
     ctx=json.loads(json.dumps(scenario["input"]))
     model_trace=run_models(kb,ctx)
+    inventory_trace=run_inventory_ledger(kb,ctx)
+    poi_trace=assess_poi_access(kb,ctx)
+    time_trace=run_trip_accounting(kb,ctx)
     recs=run_rules(kb,ctx)
     composed=compose_recommendations(kb,ctx,recs)
     return {"scenario_id":scenario["id"],"knowledge_version":kb["meta"]["knowledge_version"],
-            "derived":ctx,"model_trace":model_trace,"recommendations":recs,
+            "derived":ctx,"model_trace":model_trace,"inventory_trace":inventory_trace,"poi_trace":poi_trace,"time_trace":time_trace,"recommendations":recs,
             "composed_recommendations":composed,"fired_rule_ids":[r["id"] for r in recs]}
 
 def main():
