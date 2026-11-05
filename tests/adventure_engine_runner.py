@@ -288,13 +288,111 @@ def compose_recommendations(kb, ctx, fired):
     cards.sort(key=lambda c: (-c["priority"], c["id"]))
     return cards
 
+
+def _inventory_event_confirmation(event, event_type, spec):
+    rule = spec.get("event_types", {}).get(event_type)
+    if not rule:
+        return False, "unsupported_event_type"
+    quantity = event.get("quantity")
+    if not isinstance(quantity, (int, float)) or isinstance(quantity, bool) or quantity <= 0:
+        return False, "missing_or_invalid_quantity"
+    for requirement in rule.get("requires", []):
+        if requirement == "verification_status in verified|official" and event.get("verification_status") not in ("verified", "official"):
+            return False, "poi_not_verified"
+        if requirement == "availability_status=confirmed_available" and event.get("availability_status") != "confirmed_available":
+            return False, "availability_not_confirmed"
+        if requirement == "quantity_status=confirmed" and event.get("quantity_status") != "confirmed":
+            return False, "quantity_not_confirmed"
+        if requirement not in ("verification_status in verified|official","availability_status=confirmed_available","quantity_status=confirmed","quantity>0"):
+            raise ValueError(f"Unsupported inventory requirement: {requirement}")
+    return True, None
+
+
+def _process_inventory_resource(stages, resource, initial_stock, spec):
+    stock = initial_stock if isinstance(initial_stock,(int,float)) and not isinstance(initial_stock,bool) and initial_stock >= 0 else None
+    rows=[]; total_shortage=0.0
+    need_key="water_l" if resource=="water_l" else "cho_g"
+    for stage in stages:
+        distance=stage.get("planned_distance_km",stage.get("distance_km"))
+        need_obj=stage.get("inventory_need",{})
+        demand=need_obj.get(need_key) if isinstance(need_obj,dict) else None
+        demand_ok=isinstance(demand,(int,float)) and not isinstance(demand,bool) and demand>=0
+        distance_ok=isinstance(distance,(int,float)) and not isinstance(distance,bool) and distance>0
+        opening=stock; shortage=0.0; additions=0.0; losses=0.0; event_rows=[]
+        valid=[]
+        events=stage.get("inventory_events",[])
+        for event in events if isinstance(events,list) else []:
+            if not isinstance(event,dict):
+                event_rows.append({"accepted":False,"reason":"invalid_event_shape"}); continue
+            typ=event.get("type")
+            rule=spec.get("event_types",{}).get(typ,{})
+            if rule.get("resource")!=resource: continue
+            km=event.get("route_km")
+            if not distance_ok or not isinstance(km,(int,float)) or isinstance(km,bool) or km<0 or km>distance:
+                event_rows.append({"event_id":event.get("event_id"),"accepted":False,"reason":"invalid_or_unverifiable_route_position"}); continue
+            accepted,reason=_inventory_event_confirmation(event,typ,spec)
+            valid.append((float(km),event,typ,accepted,reason))
+        valid.sort(key=lambda x:(x[0],str(x[1].get("event_id",""))))
+        cursor=0.0
+        for km,event,typ,accepted,reason in valid:
+            if demand_ok and distance_ok and stock is not None:
+                consumption=demand*(km-cursor)/distance
+                used=min(stock,consumption); stock-=used
+                shortage+=consumption-used; total_shortage+=consumption-used
+            else:
+                if not demand_ok: stock=None
+            cursor=km
+            if accepted and stock is not None and demand_ok:
+                qty=float(event["quantity"])
+                if typ in ("water_refill","cho_resupply"):
+                    stock+=qty; additions+=qty
+                else:
+                    loss=min(stock,qty); stock-=loss; losses+=loss
+            elif accepted:
+                stock=None
+            event_rows.append({"event_id":event.get("event_id"),"route_km":km,"type":typ,"quantity":event.get("quantity"),"accepted":accepted,"reason":reason,"stock_after_event":stock})
+        if demand_ok and distance_ok and stock is not None:
+            consumption=demand*(distance-cursor)/distance
+            used=min(stock,consumption); stock-=used
+            shortage+=consumption-used; total_shortage+=consumption-used
+        else:
+            stock=None
+        status="shortage" if shortage>0 else ("complete" if opening is not None and demand_ok and distance_ok else "insufficient_data")
+        rows.append({"stage_id":stage.get("id"),"resource":resource,"opening_stock":opening,
+            "planned_demand":demand if demand_ok else None,"confirmed_resupply":additions,
+            "confirmed_losses":losses,"closing_stock":stock,"shortage":shortage,"status":status,
+            "demand_allocation":"linear_by_route_distance","events":event_rows})
+    return rows,total_shortage
+
+
+def run_inventory_ledger(kb,ctx):
+    """Execute the KB-defined ordered inventory ledger for water and CHO."""
+    spec=kb.get("stage5_contracts",{}).get("inventory_ledger")
+    trip=ctx.get("trip",{})
+    stages=trip.get("stage_sequence") if isinstance(trip,dict) else None
+    if not spec or not isinstance(stages,list) or not stages: return None
+    stages=sorted(stages,key=lambda s:(s.get("ordinal",0),str(s.get("id",""))))
+    start=trip.get("inventory_start",{})
+    water,water_short=_process_inventory_resource(stages,"water_l",start.get("water_l") if isinstance(start,dict) else None,spec)
+    cho,cho_short=_process_inventory_resource(stages,"cho_g",start.get("cho_g") if isinstance(start,dict) else None,spec)
+    rows=[{"stage_id":s.get("id"),"ordinal":s.get("ordinal"),"water":water[i],"nutrition":cho[i]} for i,s in enumerate(stages)]
+    statuses=[r[k]["status"] for r in rows for k in ("water","nutrition")]
+    overall="insufficient_data" if "insufficient_data" in statuses else ("partial" if "shortage" in statuses else "complete")
+    set_path(ctx,"plan.trip_accounting.inventory_ledger",rows)
+    set_path(ctx,"plan.trip_accounting.inventory_status",overall)
+    set_path(ctx,"plan.trip_accounting.inventory_shortage.water_l",water_short)
+    set_path(ctx,"plan.trip_accounting.inventory_shortage.cho_g",cho_short)
+    return {"status":overall,"stages":len(rows),"water_shortage_l":water_short,"cho_shortage_g":cho_short}
+
+
 def execute(kb, scenario):
     ctx=json.loads(json.dumps(scenario["input"]))
     model_trace=run_models(kb,ctx)
+    inventory_trace=run_inventory_ledger(kb,ctx)
     recs=run_rules(kb,ctx)
     composed=compose_recommendations(kb,ctx,recs)
     return {"scenario_id":scenario["id"],"knowledge_version":kb["meta"]["knowledge_version"],
-            "derived":ctx,"model_trace":model_trace,"recommendations":recs,
+            "derived":ctx,"model_trace":model_trace,"inventory_trace":inventory_trace,"recommendations":recs,
             "composed_recommendations":composed,"fired_rule_ids":[r["id"] for r in recs]}
 
 def main():
