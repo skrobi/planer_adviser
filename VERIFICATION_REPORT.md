@@ -109,3 +109,14 @@ This confirms the Python reference implementation and declarative contracts only
 ## 18. Trip time accounting – reference implementation
 
 The Python reference interpreter now aggregates moving time, planned stops and planned sleep independently for the full trip. It calculates elapsed time only when all three components are known for every stage. Missing components remain unknown; known subtotals are retained. The load ledger lists per-stage distance, ascent, surface, moving time, energy proxy and planned sleep without producing a cumulative fatigue score.
+
+
+## 19. Trip time accounting CI verification (2026-11-05)
+
+GitHub Actions run `41992265678` for commit `8d59b10770a249902a403ffa40e81bd95a0f5f4c` completed successfully:
+- Python unittest suite: **57 tests passed**.
+- JSON-driven reference engine completed successfully.
+- Scenario verifier: **10 passed, 0 failed**.
+- Inventory, POI access, stage normalization and trip time accounting tests passed.
+
+Time totals keep moving, stops and sleep separate. Complete elapsed time is emitted only when every stage has all three known components; otherwise the elapsed total remains unknown while known subtotals are retained.
