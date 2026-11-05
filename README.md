@@ -587,3 +587,25 @@ Przygotowano zmianę na gałęzi `feature/stage-4-wizard-simplification`:
 - dodano testy kontraktu UX wizarda.
 
 **Uwaga implementacyjna:** `ask_if_missing`, `required_when_missing` i `prefill_from` są deklaracją kontraktu. Renderer PHP musi je obsłużyć przed pokazaniem pytań. Obecne testy JSON nie potwierdzają jeszcze działania produkcyjnego wizarda.
+
+
+## Stage 5 contract work
+
+The current knowledge base adds a canonical multi-stage contract: stable stage identity, moving time separated from stops/sleep, trip-level completeness, POI availability/quantity/capacity/freshness/detour semantics, and a transparent stage-load ledger. The contract intentionally does not invent a cumulative fatigue score or claim that POI presence proves resupply.
+
+See `stage5_contracts` in `adventure_knowledge.json`. This is a declarative target contract; the Python reference interpreter and production PHP engine do not yet execute multi-stage inventory carry-forward or POI arrival-time assessment.
+
+
+### Executable multi-stage inventory reference
+
+The Python reference runner executes `stage5_contracts.inventory_ledger` for water and CHO. Each stage supplies `inventory_need.water_l`, `inventory_need.cho_g` and route-positioned `inventory_events`; initial stock is under `trip.inventory_start`. Only verified, available and quantitatively confirmed resupply changes stock. Demand is allocated linearly by route distance as an explicit approximation. See `tests/test_inventory_ledger.py`. This is not production PHP.
+
+
+### POI access reference assessment
+
+The Python reference runner also filters normalized POI candidates by verification, freshness, open-at-arrival status, route position, detour, confirmed water/CHO quantity and resource capacity. A candidate is not automatically added to inventory: a resupply event must be explicitly selected. Ridemore remains responsible for opening-hours and freshness normalization.
+
+
+### Trip time and stage-load ledger
+
+The reference runner aggregates moving time, planned stops and sleep separately. It emits a complete elapsed total only when all components are known for every stage; otherwise it retains known subtotals and marks completeness as partial or insufficient. The per-stage load ledger exposes distance, ascent, surface, moving time, energy proxy and planned sleep without collapsing them into an unvalidated fatigue score.
