@@ -571,3 +571,19 @@ Wartości zerowe w powyższym przykładzie są wyłącznie placeholderami schema
 8. Dopiero potem zintegrować UI Planera i widok wyników.
 
 **Granica odpowiedzialności:** Python pozostaje narzędziem referencyjnym i testowym. Docelowo runtime produkcyjny działa w PHP; nie wymagamy uruchamiania Pythona na serwerze Ridemore.
+
+
+## 3. Etap 4 – uproszczenie wizarda i kontrakt profilu (2026-11-05)
+
+Przygotowano zmianę na gałęzi `feature/stage-4-wizard-simplification`:
+
+- krótki tryb jest domyślny i ograniczony do maksymalnie 8 pól, które mogą wymagać odpowiedzi;
+- dane z profilu rowerzysty, historii przejazdów, planera GPX i adaptera POI mają być uzupełniane automatycznie;
+- pytania o współczynnik potliwości, masę ciała, tolerancję wysokiego CHO i podobne parametry nie należą do wizarda wyprawy – są odłożone do przyszłego Advanced Trainer;
+- nie pytamy ręcznie o kilometry zweryfikowanych punktów wody i jedzenia – dane powinny pochodzić z bazy POI Ridemore;
+- szczegółowy wykaz jedzenia i wartości CHO produktów jest opcjonalny w trybie zaawansowanym;
+- usunięto arbitralne założenie 10 kg bagażu jako wartości użytkownika; brak masy bagażu pozostaje nieznany;
+- dodano klasyfikację pól profilu według pochodzenia: declared, observed, measured, equipment, preferences i trip-specific;
+- dodano testy kontraktu UX wizarda.
+
+**Uwaga implementacyjna:** `ask_if_missing`, `required_when_missing` i `prefill_from` są deklaracją kontraktu. Renderer PHP musi je obsłużyć przed pokazaniem pytań. Obecne testy JSON nie potwierdzają jeszcze działania produkcyjnego wizarda.
