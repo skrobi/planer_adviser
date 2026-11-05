@@ -89,6 +89,34 @@ class Stage5ContractTests(unittest.TestCase):
         self.assertNotIn("inventory_ledger",ctx.get("plan",{}).get("trip_accounting",{}))
         self.assertEqual(ctx["plan"]["poi_access"]["eligible_poi_ids"],["good"])
 
+
+    def test_time_accounting_keeps_moving_stops_and_sleep_separate(self):
+        from adventure_engine_runner import run_trip_accounting
+        ctx={"trip":{"stage_sequence":[
+            {"id":"s1","ordinal":1,"estimated_moving_time_hours":5,"planned_stops_hours":1,"planned_sleep_hours":8},
+            {"id":"s2","ordinal":2,"estimated_moving_time_hours":6,"planned_stops_hours":2,"planned_sleep_hours":7}
+        ]}}
+        run_trip_accounting(KB,ctx)
+        self.assertEqual(ctx["trip"]["total_moving_hours"],11)
+        self.assertEqual(ctx["trip"]["total_stops_hours"],3)
+        self.assertEqual(ctx["trip"]["total_sleep_hours"],15)
+        self.assertEqual(ctx["trip"]["total_elapsed_hours"],29)
+        self.assertEqual(ctx["trip"]["accounting_completeness"],"complete")
+
+    def test_missing_time_component_is_not_zero(self):
+        from adventure_engine_runner import run_trip_accounting
+        ctx={"trip":{"stage_sequence":[
+            {"id":"s1","ordinal":1,"estimated_moving_hours":5,"planned_stops_hours":None,"planned_sleep_hours":8},
+            {"id":"s2","ordinal":2,"estimated_moving_hours":6,"planned_stops_hours":2,"planned_sleep_hours":None}
+        ]}}
+        run_trip_accounting(KB,ctx)
+        self.assertEqual(ctx["trip"]["total_moving_hours"],11)
+        self.assertIsNone(ctx["trip"]["total_stops_hours"])
+        self.assertIsNone(ctx["trip"]["total_sleep_hours"])
+        self.assertIsNone(ctx["trip"]["total_elapsed_hours"])
+        self.assertEqual(ctx["trip"]["accounting_completeness"],"partial")
+        self.assertEqual(ctx["plan"]["trip_accounting"]["known_subtotals"]["stops"],2)
+
     def test_short_wizard_policy_is_explicit(self):
         self.assertTrue(WIZARD["meta"]["question_policy"]["ask_only_if_missing"])
 
