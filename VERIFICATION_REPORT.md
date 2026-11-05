@@ -71,3 +71,13 @@ GitHub Actions run `41990591353` for PR #3 completed successfully:
 The Python reference interpreter now executes the KB-defined inventory event contract for water and CHO. Initial stock is explicit; missing values remain unknown. Confirmed resupply requires verified/official source, confirmed availability and confirmed positive quantity. Loss events require confirmed positive quantity. Stages carry forward physical remaining stock; route-positioned events are processed in order, and later resupply cannot erase an earlier shortage. Unknown demand or starting stock is never replaced with zero.
 
 For this reference implementation, stage demand is allocated linearly by route distance between events. This is a transparent accounting approximation, not a physiological intake curve. Stage demand must be supplied by stage-level nutrition and hydration models. PHP parity and Ridemore adapter integration remain pending.
+
+
+## 14. Inventory ledger CI verification (2026-11-05)
+
+The latest PR #3 GitHub Actions run for commit `2bcebec699800878e5dfa358b11e397a6e9e4331` completed successfully:
+- Python unittest suite: **50 tests passed**.
+- Inventory ledger tests: 11 passed, covering stage carry-forward, CHO resupply, verified water refill, closed POI, estimated food quantity, confirmed loss, event ordering, shortage persistence and unknown propagation.
+- JSON-driven reference engine and scenario verifier: **10 passed, 0 failed**.
+
+The inventory ledger is now executed by the Python reference interpreter using the event rules in the knowledge base. It is still not production PHP and is not yet connected to live Ridemore POI records. The linear-by-distance demand allocation is an explicit approximation requiring review before production use.
