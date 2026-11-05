@@ -86,3 +86,10 @@ The inventory ledger is now executed by the Python reference interpreter using t
 ## 15. Canonical stage normalization for inventory
 
 The reference ledger accepts the GPX StagePlanner's current aliases (`day`, `distance_km`) and normalizes them to stable `ordinal`, `id` and `planned_distance_km` fields. The canonical stage contract explicitly requires stage-specific demand from NutritionExpert and HydrationExpert; trip-level demand must not be copied onto every stage.
+
+
+## 16. POI access assessment – reference implementation
+
+The reference interpreter now evaluates normalized POI candidates separately from inventory events. A POI can be shown as a confirmed water/food option only when source verification, freshness, open-at-arrival status, route position, detour and resource-specific confirmed quantity/capacity are present. Opening-hours parsing and freshness normalization remain Ridemore adapter responsibilities.
+
+A confirmed POI is only a potential resupply option. It does not change inventory automatically; the rider's plan must explicitly select a resupply event. This avoids assuming a purchase or refill that the rider has not selected.
