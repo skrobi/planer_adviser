@@ -457,15 +457,82 @@ def assess_poi_access(kb,ctx):
             "confirmed_water_count":len(water_ids),"confirmed_food_count":len(food_ids)}
 
 
+
+def run_trip_accounting(kb,ctx):
+    """Aggregate canonical stage time without coercing unknown stops or sleep to zero."""
+    trip=ctx.get("trip",{})
+    stages=trip.get("stage_sequence") if isinstance(trip,dict) else None
+    if not isinstance(stages,list) or not stages:
+        return None
+    normalized=[]
+    for index,original in enumerate(stages,start=1):
+        stage=dict(original)
+        stage.setdefault("ordinal",stage.get("day",index))
+        stage.setdefault("id",f"stage_{stage['ordinal']}")
+        if "planned_distance_km" not in stage and "distance_km" in stage:
+            stage["planned_distance_km"]=stage["distance_km"]
+        if "estimated_moving_time_hours" not in stage:
+            if "estimated_moving_hours" in stage:
+                stage["estimated_moving_time_hours"]=stage["estimated_moving_hours"]
+            elif "estimated_time_hours" in stage:
+                stage["estimated_moving_time_hours"]=stage["estimated_time_hours"]
+        normalized.append(stage)
+    normalized.sort(key=lambda s:(s.get("ordinal",0),str(s.get("id",""))))
+    components=("moving","stops","sleep")
+    totals={}; subtotals={}; unknown_counts={}
+    rows=[]; load=[]
+    for component in components:
+        path={"moving":"estimated_moving_time_hours","stops":"planned_stops_hours","sleep":"planned_sleep_hours"}[component]
+        known=[s.get(path) for s in normalized if isinstance(s.get(path),(int,float)) and not isinstance(s.get(path),bool) and s.get(path)>=0]
+        unknown_counts[component]=len(normalized)-len(known)
+        subtotals[component]=sum(known)
+        totals[component]=subtotals[component] if unknown_counts[component]==0 else None
+    for stage in normalized:
+        moving=stage.get("estimated_moving_time_hours")
+        stops=stage.get("planned_stops_hours")
+        sleep=stage.get("planned_sleep_hours")
+        valid=lambda x:isinstance(x,(int,float)) and not isinstance(x,bool) and x>=0
+        elapsed=moving+stops+sleep if all(valid(x) for x in (moving,stops,sleep)) else None
+        rows.append({"stage_id":stage["id"],"ordinal":stage["ordinal"],
+            "moving_hours":moving if valid(moving) else None,
+            "stops_hours":stops if valid(stops) else None,
+            "sleep_hours":sleep if valid(sleep) else None,
+            "elapsed_hours":elapsed,
+            "missing_components":[name for name,val in (("moving",moving),("stops",stops),("sleep",sleep)) if not valid(val)]})
+        load.append({"stage_id":stage["id"],"ordinal":stage["ordinal"],
+            "distance_km":stage.get("planned_distance_km"),
+            "elevation_gain_m":stage.get("elevation_gain_m"),
+            "surface":stage.get("dominant_surface",stage.get("surface")),
+            "moving_hours":moving if valid(moving) else None,
+            "energy_kj_proxy":stage.get("energy_kj_proxy",stage.get("estimated_metabolic_energy_kj")),
+            "planned_sleep_hours":sleep if valid(sleep) else None,
+            "recovery_interpretation":"planned interval only; not a validated recovery score"})
+    all_complete=all(v==0 for v in unknown_counts.values())
+    any_known=any(v>0 for v in subtotals.values())
+    completeness="complete" if all_complete else ("partial" if any_known else "insufficient_data")
+    elapsed=totals["moving"]+totals["stops"]+totals["sleep"] if all_complete else None
+    set_path(ctx,"trip.total_moving_hours",totals["moving"])
+    set_path(ctx,"trip.total_stops_hours",totals["stops"])
+    set_path(ctx,"trip.total_sleep_hours",totals["sleep"])
+    set_path(ctx,"trip.total_elapsed_hours",elapsed)
+    set_path(ctx,"trip.accounting_completeness",completeness)
+    set_path(ctx,"plan.trip_accounting.time_ledger",rows)
+    set_path(ctx,"plan.trip_accounting.known_subtotals",subtotals)
+    set_path(ctx,"plan.trip_accounting.load_ledger",load)
+    return {"completeness":completeness,"moving_hours":totals["moving"],
+            "stops_hours":totals["stops"],"sleep_hours":totals["sleep"],"elapsed_hours":elapsed}
+
+
 def execute(kb, scenario):
     ctx=json.loads(json.dumps(scenario["input"]))
     model_trace=run_models(kb,ctx)
     inventory_trace=run_inventory_ledger(kb,ctx)
     poi_trace=assess_poi_access(kb,ctx)
+    time_trace=run_trip_accounting(kb,ctx)
     recs=run_rules(kb,ctx)
     composed=compose_recommendations(kb,ctx,recs)
     return {"scenario_id":scenario["id"],"knowledge_version":kb["meta"]["knowledge_version"],
-            "derived":ctx,"model_trace":model_trace,"inventory_trace":inventory_trace,"poi_trace":poi_trace,"recommendations":recs,
+            "derived":ctx,"model_trace":model_trace,"inventory_trace":inventory_trace,"poi_trace":poi_trace,"time_trace":time_trace,"recommendations":recs,
             "composed_recommendations":composed,"fired_rule_ids":[r["id"] for r in recs]}
 
 def main():
