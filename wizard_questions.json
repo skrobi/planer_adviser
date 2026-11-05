@@ -1,8 +1,8 @@
 {
   "meta": {
     "id": "ridemore_trip_wizard",
-    "version": "0.9.0",
-    "kb_version_target": "0.9.5-wizard-ux",
+    "version": "0.9.3",
+    "kb_version_target": "0.9.8-stage5-poi-access",
     "language_default": "pl",
     "description": "Wizard progresywny: krótki tryb domyślny, pytania tylko dla brakujących danych, techniczne pomiary odłożone do Advanced Trainer. Dane z profilu, historii Ridemore i GPX są używane automatycznie.",
     "output_context_root": "wizard_answers → nested paths used by rule engine",
@@ -40,7 +40,7 @@
       "manual_poi_entry": "disabled",
       "unknown_values": "Preserve null/unknown and report resulting uncertainty.",
       "ask_only_if_missing": true,
-      "ask_only_if_missing_note": "Before rendering, prefill trusted profile, activity history, route analysis and POI sources; ask only for values still missing and material to the selected analysis."
+      "ask_only_if_missing_note": "Renderer must prefill all trusted sources and ask only when the value is absent and materially affects the selected analysis."
     }
   },
   "steps": [
