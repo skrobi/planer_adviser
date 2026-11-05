@@ -2,13 +2,13 @@
   "meta": {
     "system_name": "RideMore Expert System Knowledge Base",
     "schema_version": "1.0.0-alpha",
-    "knowledge_version": "0.9.5-wizard-ux",
+    "knowledge_version": "0.9.6-stage5-contracts",
     "created": "2026-11-04",
     "updated": "2026-11-05",
     "language": "pl-en",
     "scope": "Adventure cycling, bikepacking, ultra-cycling, touring, gravel, MTB expedition planning and risk assessment for RideMore.bike planner integration",
     "min_php_engine_version": "8.1",
-    "completeness_status": "unified_tree_models_rules_layout",
+    "completeness_status": "stage5_contracts_defined_execution_pending",
     "change_history": [
       {
         "version": "0.1.0-research",
@@ -113,6 +113,11 @@
         "version": "0.9.5-wizard-ux",
         "date": "2026-11-05",
         "description": "Simplified progressive wizard contract: short mode defaults, prefill from rider profile/history/route/POIs, removed specialist physiology and manual POI-list questions, classified profile field origins and avoided assumed 10 kg luggage."
+      },
+      {
+        "version": "0.9.6-stage5-contracts",
+        "date": "2026-11-05",
+        "description": "Stage 5 contract pass: define canonical multi-stage accounting, separate moving/stops/sleep time, formalize POI arrival/quantity/capacity/freshness eligibility, and require transparent per-stage load ledger instead of unvalidated cumulative fatigue score. Execution and PHP integration remain pending."
       }
     ],
     "notes": "Quality and source traceability prioritized over volume. Arbitrary thresholds avoided. Missing data handled via insufficient_data / user_input_required. Safety hierarchy enforced in conflict model (to be expanded)."
@@ -3858,6 +3863,216 @@
         "source_class": "measured",
         "wizard_policy": "advanced_trainer_only",
         "description": "Measured sweat sodium concentration; never ask in the basic trip wizard."
+      },
+      "trip.stage_sequence": {
+        "type": "array",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Ordered canonical stages returned by StagePlanner. Each stage has stable id, ordinal, route interval and shared stage fields."
+      },
+      "stage.id": {
+        "type": "string",
+        "required": true,
+        "description": "Stable identifier of a stage within one trip analysis."
+      },
+      "stage.ordinal": {
+        "type": "integer",
+        "min": 1,
+        "required": true,
+        "description": "One-based stage order within the trip."
+      },
+      "stage.start_km": {
+        "type": "number",
+        "unit": "km",
+        "required": true,
+        "description": "Start chainage on the route."
+      },
+      "stage.end_km": {
+        "type": "number",
+        "unit": "km",
+        "required": true,
+        "description": "End chainage on the route."
+      },
+      "stage.estimated_moving_time_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Canonical estimated moving time. Stops and sleep are not included."
+      },
+      "stage.planned_stops_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Planned stationary time within this stage."
+      },
+      "stage.planned_sleep_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Planned sleep/rest allocated to this stage boundary or stage interval."
+      },
+      "stage.start_time_local": {
+        "type": "string",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Local planned start timestamp with timezone context when available."
+      },
+      "stage.end_time_local": {
+        "type": "string",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Estimated end timestamp with timezone context when available."
+      },
+      "trip.total_moving_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Sum of known stage moving times; partial if any stage time is unknown."
+      },
+      "trip.total_stops_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Sum of declared/estimated stop durations; partial if any stage is unknown."
+      },
+      "trip.total_sleep_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Sum of planned sleep durations; partial if any interval is unknown."
+      },
+      "trip.total_elapsed_hours": {
+        "type": "number",
+        "unit": "h",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Moving + stops + sleep + explicit contingency, with completeness metadata."
+      },
+      "trip.accounting_completeness": {
+        "type": "enum",
+        "values": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ],
+        "required": true,
+        "description": "Completeness of trip-level time and inventory accounting."
+      },
+      "logistics.poi_candidates": {
+        "type": "array",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "POIs supplied by Ridemore adapter; retain source, verification, hours, quantities, capacity, detour and freshness."
+      },
+      "poi.id": {
+        "type": "string",
+        "required": true,
+        "description": "Stable source or master identifier supplied by Ridemore."
+      },
+      "poi.arrival_time_local": {
+        "type": "string",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Estimated local arrival timestamp; required to determine opening at arrival."
+      },
+      "poi.open_status_at_arrival": {
+        "type": "enum",
+        "values": [
+          "open_confirmed",
+          "closed_confirmed",
+          "unknown"
+        ],
+        "required": false,
+        "description": "Computed by adapter/normalizer from opening hours and arrival timestamp; never infer from missing hours."
+      },
+      "poi.water_volume_l": {
+        "type": "number",
+        "unit": "L",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Confirmed accessible water quantity; a fountain/location without volume remains unknown."
+      },
+      "poi.food_cho_g": {
+        "type": "number",
+        "unit": "g",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Confirmed available carbohydrate quantity; category alone is not a quantity."
+      },
+      "poi.capacity_status": {
+        "type": "enum",
+        "values": [
+          "confirmed_sufficient",
+          "confirmed_limited",
+          "unknown"
+        ],
+        "required": false,
+        "description": "Whether the POI can supply the required amount, based on known quantity/capacity."
+      },
+      "poi.detour_distance_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Additional route distance to access the POI."
+      },
+      "poi.fetched_at": {
+        "type": "string",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Timestamp when POI data was retrieved."
+      },
+      "poi.valid_until": {
+        "type": "string",
+        "required": false,
+        "unknown_allowed": true,
+        "description": "Optional freshness expiry timestamp."
+      },
+      "plan.trip_accounting.status": {
+        "type": "enum",
+        "values": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ]
+      },
+      "plan.trip_accounting.stages": {
+        "type": "array"
+      },
+      "plan.trip_accounting.total_moving_hours": {
+        "type": "number",
+        "unit": "h"
+      },
+      "plan.trip_accounting.total_elapsed_hours": {
+        "type": "number",
+        "unit": "h"
+      },
+      "plan.trip_accounting.load_ledger": {
+        "type": "array",
+        "description": "Per-stage transparent exposure ledger; not a validated single fatigue score."
+      },
+      "plan.poi_access.status": {
+        "type": "enum",
+        "values": [
+          "confirmed",
+          "partial",
+          "insufficient_data"
+        ]
+      },
+      "plan.poi_access.eligible_poi_ids": {
+        "type": "array"
+      },
+      "plan.poi_access.excluded_poi_ids": {
+        "type": "array"
+      },
+      "plan.poi_access.reasons": {
+        "type": "array"
       }
     },
     "naming_conventions": {
@@ -5760,5 +5975,137 @@
       ],
       "requirements": "Every aggregate includes period_start, period_end, activity_count, generated_at and completeness/quality metadata."
     }
+  },
+  "stage5_contracts": {
+    "version": "0.1.0",
+    "status": "contract_defined_execution_pending",
+    "principles": [
+      "The user-requested number of days is authoritative. StagePlanner may report constraints and alternatives but must not silently change that count.",
+      "All experts consume the same canonical stage object and stable stage id/ordinal.",
+      "Moving time, stationary stops, sleep and contingency are separate quantities. Never add stops or sleep to a moving-time input.",
+      "Unknown is not zero. Every aggregate carries completeness and provenance.",
+      "POI category or geographic presence does not establish opening, quantity, capacity or resupply sufficiency.",
+      "Do not combine stage exposures into a single physiological fatigue score until a validated model and required inputs exist. Expose a transparent per-stage load ledger instead.",
+      "Stage-level expert calculations are performed per stage; trip-level accounting aggregates stage outputs without recomputing them.",
+      "No universal fluid intake, sweat rate, sodium dose, sleep minimum or fatigue threshold is inferred from missing personal data."
+    ],
+    "canonical_stage": {
+      "id": "stage.id",
+      "ordinal": "stage.ordinal",
+      "route_interval": {
+        "start_km": "stage.start_km",
+        "end_km": "stage.end_km"
+      },
+      "distance": "stage.planned_distance_km",
+      "elevation": "stage.elevation_gain_m",
+      "moving_time": "stage.estimated_moving_time_hours",
+      "legacy_time_alias": "stage.estimated_time_hours",
+      "stops": "stage.planned_stops_hours",
+      "sleep": "stage.planned_sleep_hours",
+      "time_semantics": "stage.estimated_time_hours is retained as a compatibility alias for moving time only. It must never contain stops or sleep."
+    },
+    "trip_accounting": {
+      "inputs": [
+        "trip.stage_sequence",
+        "stage.estimated_moving_time_hours",
+        "stage.planned_stops_hours",
+        "stage.planned_sleep_hours",
+        "trip.days_count"
+      ],
+      "outputs": [
+        "trip.total_moving_hours",
+        "trip.total_stops_hours",
+        "trip.total_sleep_hours",
+        "trip.total_elapsed_hours",
+        "trip.accounting_completeness",
+        "plan.trip_accounting.load_ledger"
+      ],
+      "aggregation": {
+        "moving_time": "sum(known stage moving times); unknown if any required stage moving time is absent, with known subtotal retained separately",
+        "stops": "sum declared stop times; unknown/partial when one or more stage stop values are absent",
+        "sleep": "sum planned sleep values; unknown/partial when any relevant overnight interval is not declared",
+        "elapsed": "moving + stops + sleep + explicitly supplied contingency; never substitute missing components with zero without marking partial",
+        "load_ledger": "one row per stage with stage id, ordinal, moving hours, distance, ascent, surface exposure, energy proxy, rest interval before next stage, source and confidence"
+      },
+      "forbidden_outputs": [
+        "unvalidated_cumulative_fatigue_score",
+        "binary_rider_success_prediction",
+        "automatic_change_to_user_requested_day_count"
+      ]
+    },
+    "poi_access": {
+      "inputs": [
+        "logistics.poi_candidates",
+        "poi.verification_status",
+        "poi.opening_hours",
+        "poi.hours_confidence",
+        "poi.open_status_at_arrival",
+        "poi.water_volume_l",
+        "poi.food_cho_g",
+        "poi.capacity_status",
+        "poi.detour_distance_km",
+        "poi.fetched_at",
+        "poi.valid_until"
+      ],
+      "outputs": [
+        "plan.poi_access.status",
+        "plan.poi_access.eligible_poi_ids",
+        "plan.poi_access.excluded_poi_ids",
+        "plan.poi_access.reasons"
+      ],
+      "eligibility_rules": [
+        "Only official/verified POIs with sufficiently fresh data may be considered confirmed supply candidates.",
+        "open_status_at_arrival=open_confirmed is required for time-dependent resupply confirmation; unknown hours means unknown availability.",
+        "Water resupply requires known accessible water volume or an explicitly defined refill capacity; presence alone is insufficient.",
+        "Food resupply requires known CHO quantity for nutrition accounting; food category alone is insufficient.",
+        "Capacity status must be confirmed for the amount required by the plan; unknown capacity cannot close a supply gap.",
+        "Detour distance is included in route distance and time only when supplied by route/POI analysis; never silently omit a material detour.",
+        "Retain excluded POIs and the reason for exclusion; do not delete uncertain candidates from the audit trail."
+      ],
+      "adapter_boundary": "Ridemore owns POI category taxonomy, master IDs, sources and verification workflow. This engine contract consumes normalized fields and does not define a second POI category dictionary."
+    },
+    "stage_load_and_recovery": {
+      "inputs": [
+        "trip.stage_sequence",
+        "stage.estimated_moving_time_hours",
+        "stage.planned_stops_hours",
+        "stage.planned_sleep_hours",
+        "stage.distance_km",
+        "stage.elevation_gain_m",
+        "stage.relative_effort_factor",
+        "stage.energy_kj_proxy"
+      ],
+      "outputs": [
+        "plan.trip_accounting.load_ledger"
+      ],
+      "method": "Expose per-stage components and inter-stage recovery intervals. Do not calculate a single cumulative fatigue score or infer recovery adequacy from sleep hours alone until a separately sourced and validated model is implemented.",
+      "limitations": [
+        "Energy proxy is not a direct physiological measurement.",
+        "Sleep duration alone does not establish sleep quality or recovery.",
+        "No fatigue-decay factor may reduce CHO or fluid targets."
+      ]
+    },
+    "discipline_and_event_context": {
+      "supported_profiles": [
+        "road",
+        "gravel",
+        "mtb",
+        "brevet",
+        "ultra",
+        "bikepacking",
+        "touring",
+        "training"
+      ],
+      "rule": "Discipline selects relevant route/surface/equipment/event constraints; it must not create unsupported physiological multipliers. Training preparation is a distinct analysis type requiring an event date, event demands and available training history."
+    },
+    "implementation_order": [
+      "Normalize profile and route inputs with provenance.",
+      "Build canonical ordered stage objects.",
+      "Run stage_demand once per stage and pass its moving-time result downstream.",
+      "Run nutrition and hydration per stage with that stage's inventory and confirmed resupply events.",
+      "Run POI access assessment against estimated arrival times and quantities.",
+      "Build trip time and stage-load ledgers without recalculating stage demand.",
+      "Compose recommendations with traceable source rules, confidence and missing-data reasons."
+    ]
   }
 }
