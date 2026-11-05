@@ -40,4 +40,25 @@ class InventoryLedgerTests(unittest.TestCase):
   c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":3,"cho_g":100},"inventory_events":[refill("start",0,3)]}],water=0)
   run_inventory_ledger(KB,c); row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["water"]
   self.assertEqual(row["confirmed_resupply"],3); self.assertEqual(row["closing_stock"],0)
-if __name__=="__main__": unittest.main(verbosity=2)
+
+ def test_cho_resupply_is_carried_forward(self):
+  c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":1,"cho_g":150},"inventory_events":[{"event_id":"food","type":"cho_resupply","route_km":50,"quantity":100,"verification_status":"official","availability_status":"confirmed_available","quantity_status":"confirmed"}]}],water=2,cho=100)
+  run_inventory_ledger(KB,c); row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["nutrition"]
+  self.assertEqual(row["confirmed_resupply"],100); self.assertEqual(row["closing_stock"],50)
+ def test_unconfirmed_food_quantity_is_not_credited(self):
+  c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":1,"cho_g":150},"inventory_events":[{"event_id":"food","type":"cho_resupply","route_km":10,"quantity":200,"verification_status":"verified","availability_status":"confirmed_available","quantity_status":"estimated"}]}],water=2,cho=100)
+  run_inventory_ledger(KB,c); row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["nutrition"]
+  self.assertEqual(row["confirmed_resupply"],0); self.assertEqual(row["shortage"],50); self.assertEqual(row["events"][0]["reason"],"quantity_not_confirmed")
+ def test_closed_poi_does_not_add_water(self):
+  c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":3,"cho_g":100},"inventory_events":[refill("closed",10,5,availability="closed")]}],water=1)
+  run_inventory_ledger(KB,c); row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["water"]
+  self.assertEqual(row["confirmed_resupply"],0); self.assertEqual(row["events"][0]["reason"],"availability_not_confirmed")
+ def test_confirmed_loss_reduces_stock(self):
+  c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":1,"cho_g":100},"inventory_events":[{"event_id":"spill","type":"water_loss","route_km":20,"quantity":0.5,"quantity_status":"confirmed"}]}],water=2)
+  run_inventory_ledger(KB,c); row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["water"]
+  self.assertEqual(row["confirmed_losses"],0.5); self.assertEqual(row["closing_stock"],0.5)
+ def test_excluded_event_marks_ledger_partial_when_no_shortage(self):
+  c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":1,"cho_g":100},"inventory_events":[refill("unknown",50,3,availability="unknown")]}],water=2)
+  run_inventory_ledger(KB,c); row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["water"]
+  self.assertEqual(row["status"],"partial"); self.assertEqual(c["plan"]["trip_accounting"]["inventory_status"],"partial")
+\nif __name__=="__main__": unittest.main(verbosity=2)
