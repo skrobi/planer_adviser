@@ -2,7 +2,7 @@
   "meta": {
     "system_name": "RideMore Expert System Knowledge Base",
     "schema_version": "1.0.0-alpha",
-    "knowledge_version": "0.9.6-stage5-contracts",
+    "knowledge_version": "0.9.7-stage5-inventory-ledger",
     "created": "2026-11-04",
     "updated": "2026-11-05",
     "language": "pl-en",
@@ -118,6 +118,11 @@
         "version": "0.9.6-stage5-contracts",
         "date": "2026-11-05",
         "description": "Stage 5 contract pass: define canonical multi-stage accounting, separate moving/stops/sleep time, formalize POI arrival/quantity/capacity/freshness eligibility, and require transparent per-stage load ledger instead of unvalidated cumulative fatigue score. Execution and PHP integration remain pending."
+      },
+      {
+        "version": "0.9.7-stage5-inventory-ledger",
+        "date": "2026-11-05",
+        "description": "Add multi-stage water and CHO inventory event schema and executable reference ledger with confirmation, route ordering, carry-forward, shortage and unknown propagation."
       }
     ],
     "notes": "Quality and source traceability prioritized over volume. Arbitrary thresholds avoided. Missing data handled via insufficient_data / user_input_required. Safety hierarchy enforced in conflict model (to be expanded)."
@@ -4073,6 +4078,98 @@
       },
       "plan.poi_access.reasons": {
         "type": "array"
+      },
+      "trip.inventory_start.water_l": {
+        "type": "number",
+        "unit": "L",
+        "unknown_allowed": true,
+        "description": "Known water stock at trip start; missing is unknown, not zero."
+      },
+      "trip.inventory_start.cho_g": {
+        "type": "number",
+        "unit": "g",
+        "unknown_allowed": true,
+        "description": "Known CHO stock at trip start; missing is unknown, not zero."
+      },
+      "stage.inventory_need.water_l": {
+        "type": "number",
+        "unit": "L",
+        "unknown_allowed": true,
+        "description": "Stage water demand supplied by hydration expert."
+      },
+      "stage.inventory_need.cho_g": {
+        "type": "number",
+        "unit": "g",
+        "unknown_allowed": true,
+        "description": "Stage CHO demand supplied by nutrition expert."
+      },
+      "stage.inventory_events": {
+        "type": "array",
+        "description": "Route-positioned inventory events."
+      },
+      "inventory_event.event_id": {
+        "type": "string"
+      },
+      "inventory_event.type": {
+        "type": "enum",
+        "values": [
+          "water_refill",
+          "cho_resupply",
+          "water_loss",
+          "cho_loss"
+        ]
+      },
+      "inventory_event.route_km": {
+        "type": "number",
+        "unit": "km"
+      },
+      "inventory_event.quantity": {
+        "type": "number",
+        "unknown_allowed": true
+      },
+      "inventory_event.verification_status": {
+        "type": "enum",
+        "values": [
+          "verified",
+          "official",
+          "unverified",
+          "unknown"
+        ]
+      },
+      "inventory_event.availability_status": {
+        "type": "enum",
+        "values": [
+          "confirmed_available",
+          "closed",
+          "unknown"
+        ]
+      },
+      "inventory_event.quantity_status": {
+        "type": "enum",
+        "values": [
+          "confirmed",
+          "estimated",
+          "unknown"
+        ]
+      },
+      "plan.trip_accounting.inventory_ledger": {
+        "type": "array"
+      },
+      "plan.trip_accounting.inventory_status": {
+        "type": "enum",
+        "values": [
+          "complete",
+          "partial",
+          "insufficient_data"
+        ]
+      },
+      "plan.trip_accounting.inventory_shortage.water_l": {
+        "type": "number",
+        "unit": "L"
+      },
+      "plan.trip_accounting.inventory_shortage.cho_g": {
+        "type": "number",
+        "unit": "g"
       }
     },
     "naming_conventions": {
@@ -5977,8 +6074,8 @@
     }
   },
   "stage5_contracts": {
-    "version": "0.1.0",
-    "status": "contract_defined_execution_pending",
+    "version": "0.3.0",
+    "status": "reference_inventory_ledger_implemented_contracts_pending_php_parity",
     "principles": [
       "The user-requested number of days is authoritative. StagePlanner may report constraints and alternatives but must not silently change that count.",
       "All experts consume the same canonical stage object and stable stage id/ordinal.",
@@ -5987,7 +6084,8 @@
       "POI category or geographic presence does not establish opening, quantity, capacity or resupply sufficiency.",
       "Do not combine stage exposures into a single physiological fatigue score until a validated model and required inputs exist. Expose a transparent per-stage load ledger instead.",
       "Stage-level expert calculations are performed per stage; trip-level accounting aggregates stage outputs without recomputing them.",
-      "No universal fluid intake, sweat rate, sodium dose, sleep minimum or fatigue threshold is inferred from missing personal data."
+      "No universal fluid intake, sweat rate, sodium dose, sleep minimum or fatigue threshold is inferred from missing personal data.",
+      "Inventory events are applied in route order; a later resupply never retroactively closes an earlier shortage."
     ],
     "canonical_stage": {
       "id": "stage.id",
@@ -6106,6 +6204,73 @@
       "Run POI access assessment against estimated arrival times and quantities.",
       "Build trip time and stage-load ledgers without recalculating stage demand.",
       "Compose recommendations with traceable source rules, confidence and missing-data reasons."
-    ]
+    ],
+    "inventory_ledger": {
+      "status": "reference_interpreter_implemented_contracts_pending_php_parity",
+      "inputs": [
+        "trip.inventory_start.water_l",
+        "trip.inventory_start.cho_g",
+        "trip.stage_sequence",
+        "stage.planned_distance_km",
+        "stage.inventory_need.water_l",
+        "stage.inventory_need.cho_g",
+        "stage.inventory_events"
+      ],
+      "outputs": [
+        "plan.trip_accounting.inventory_ledger",
+        "plan.trip_accounting.inventory_status",
+        "plan.trip_accounting.inventory_shortage.water_l",
+        "plan.trip_accounting.inventory_shortage.cho_g"
+      ],
+      "event_types": {
+        "water_refill": {
+          "resource": "water_l",
+          "requires": [
+            "verification_status in verified|official",
+            "availability_status=confirmed_available",
+            "quantity_status=confirmed",
+            "quantity>0"
+          ]
+        },
+        "cho_resupply": {
+          "resource": "cho_g",
+          "requires": [
+            "verification_status in verified|official",
+            "availability_status=confirmed_available",
+            "quantity_status=confirmed",
+            "quantity>0"
+          ]
+        },
+        "water_loss": {
+          "resource": "water_l",
+          "requires": [
+            "quantity_status=confirmed",
+            "quantity>0"
+          ]
+        },
+        "cho_loss": {
+          "resource": "cho_g",
+          "requires": [
+            "quantity_status=confirmed",
+            "quantity>0"
+          ]
+        }
+      },
+      "processing": [
+        "Stages are processed by ascending ordinal; closing physical stock becomes the next stage opening stock.",
+        "Events are processed by route_km. Demand is allocated linearly by distance between events; this approximation is recorded in each ledger row.",
+        "Consumption up to an event position is deducted before the event is applied. Later resupply never retroactively closes an earlier shortage.",
+        "Only events meeting every confirmation requirement change stock. Unconfirmed events remain visible with an exclusion reason.",
+        "Missing starting stock or stage demand remains unknown, never zero. Unknown demand makes closing stock unknown.",
+        "Shortage is recorded at the point it occurs. Later resupply does not erase earlier shortage.",
+        "Negative stock is not carried forward; carry forward non-negative physical remainder and preserve shortage separately.",
+        "If stage distance is missing or non-positive, event positions cannot be validated and no within-stage resupply is credited."
+      ],
+      "limitations": [
+        "Linear demand by distance is an accounting approximation, not a physiological intake curve; it does not model terrain-dependent consumption or exact timestamps.",
+        "The ledger accounts declared demand and confirmed quantities; it does not prescribe intake rates.",
+        "This is reference Python behavior, not production PHP."
+      ]
+    }
   }
 }
