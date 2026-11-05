@@ -3831,6 +3831,33 @@
         "unknown_allowed": true,
         "source_class": "declared",
         "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.ftp_w": {
+        "type": "number",
+        "unit": "W",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "measured",
+        "wizard_policy": "advanced_trainer_only",
+        "description": "FTP from a valid test or trusted device source; never infer from average speed."
+      },
+      "user.vo2max_ml_kg_min": {
+        "type": "number",
+        "unit": "ml/kg/min",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "measured",
+        "wizard_policy": "advanced_trainer_only",
+        "description": "VO2max only from a credible measurement or device estimate with provenance."
+      },
+      "user.sodium_loss_mg_l": {
+        "type": "number",
+        "unit": "mg/L",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "measured",
+        "wizard_policy": "advanced_trainer_only",
+        "description": "Measured sweat sodium concentration; never ask in the basic trip wizard."
       }
     },
     "naming_conventions": {
