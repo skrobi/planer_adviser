@@ -66,6 +66,29 @@ class Stage5ContractTests(unittest.TestCase):
         self.assertEqual(events["water_loss"]["resource"], "water_l")
         self.assertEqual(events["cho_loss"]["resource"], "cho_g")
 
+
+    def test_poi_access_requires_verified_fresh_open_and_capacity(self):
+        from adventure_engine_runner import assess_poi_access
+        ctx={"logistics":{"poi_candidates":[
+            {"id":"good","verification_status":"verified","freshness_status":"fresh","open_status_at_arrival":"open_confirmed","route_km":20,"detour_distance_km":0.2,"water_volume_l":2,"water_capacity_status":"confirmed_sufficient"},
+            {"id":"closed","verification_status":"verified","freshness_status":"fresh","open_status_at_arrival":"closed_confirmed","route_km":30,"detour_distance_km":0.1,"water_volume_l":3,"water_capacity_status":"confirmed_sufficient"},
+            {"id":"stale","verification_status":"official","freshness_status":"stale","open_status_at_arrival":"open_confirmed","route_km":40,"detour_distance_km":0,"food_cho_g":80,"food_capacity_status":"confirmed_sufficient"},
+            {"id":"unknown_qty","verification_status":"verified","freshness_status":"fresh","open_status_at_arrival":"open_confirmed","route_km":50,"detour_distance_km":0.1,"food_cho_g":None,"food_capacity_status":"unknown"}
+        ]}}
+        assess_poi_access(KB,ctx)
+        access=ctx["plan"]["poi_access"]
+        self.assertEqual(access["eligible_poi_ids"],["good"])
+        self.assertEqual(access["confirmed_water_poi_ids"],["good"])
+        self.assertIn("closed",access["excluded_poi_ids"])
+        self.assertIn("stale",access["excluded_poi_ids"])
+
+    def test_poi_candidates_are_not_automatically_inventory_events(self):
+        from adventure_engine_runner import assess_poi_access
+        ctx={"logistics":{"poi_candidates":[{"id":"good","verification_status":"verified","freshness_status":"fresh","open_status_at_arrival":"open_confirmed","route_km":20,"detour_distance_km":0,"water_volume_l":2,"water_capacity_status":"confirmed_sufficient"}]}}
+        assess_poi_access(KB,ctx)
+        self.assertNotIn("inventory_ledger",ctx.get("plan",{}).get("trip_accounting",{}))
+        self.assertEqual(ctx["plan"]["poi_access"]["eligible_poi_ids"],["good"])
+
     def test_short_wizard_policy_is_explicit(self):
         self.assertTrue(WIZARD["meta"]["question_policy"]["ask_only_if_missing"])
 
