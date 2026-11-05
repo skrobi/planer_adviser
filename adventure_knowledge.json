@@ -2,9 +2,9 @@
   "meta": {
     "system_name": "RideMore Expert System Knowledge Base",
     "schema_version": "1.0.0-alpha",
-    "knowledge_version": "0.9.4-composition",
+    "knowledge_version": "0.9.5-wizard-ux",
     "created": "2026-11-04",
-    "updated": "2026-11-04",
+    "updated": "2026-11-05",
     "language": "pl-en",
     "scope": "Adventure cycling, bikepacking, ultra-cycling, touring, gravel, MTB expedition planning and risk assessment for RideMore.bike planner integration",
     "min_php_engine_version": "8.1",
@@ -108,6 +108,11 @@
         "version": "0.9.4-composition",
         "date": "2026-11-04",
         "description": "Added deterministic recommendation composition contract: safety, nutrition and hydration cards combine source rules without inventing route stages, declared stock or verified POI availability."
+      },
+      {
+        "version": "0.9.5-wizard-ux",
+        "date": "2026-11-05",
+        "description": "Simplified progressive wizard contract: short mode defaults, prefill from rider profile/history/route/POIs, removed specialist physiology and manual POI-list questions, classified profile field origins and avoided assumed 10 kg luggage."
       }
     ],
     "notes": "Quality and source traceability prioritized over volume. Arbitrary thresholds avoided. Missing data handled via insufficient_data / user_input_required. Safety hierarchy enforced in conflict model (to be expanded)."
@@ -159,23 +164,31 @@
           "elite"
         ],
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "annual_km": {
         "type": "number",
         "unit": "km",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "observed",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "typical_distance_km": {
         "type": "number",
         "unit": "km",
-        "required": false
+        "required": false,
+        "source_class": "observed",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "longest_ride_km": {
         "type": "number",
         "unit": "km",
-        "required": false
+        "required": false,
+        "source_class": "observed",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "multi_day_experience": {
         "type": "boolean|enum",
@@ -185,28 +198,38 @@
           "limited"
         ],
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "ultra_experience": {
         "type": "boolean",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "bikepacking_experience": {
         "type": "boolean",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "night_riding_experience": {
         "type": "boolean",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "typical_speed_kmh": {
         "type": "number",
         "unit": "km/h",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "observed",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "preferred_effort": {
         "type": "enum",
@@ -215,7 +238,9 @@
           "moderate",
           "hard"
         ],
-        "required": false
+        "required": false,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "climbing_experience": {
         "type": "enum",
@@ -224,7 +249,9 @@
           "moderate",
           "high"
         ],
-        "required": false
+        "required": false,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "unpaved_experience": {
         "type": "enum",
@@ -233,12 +260,16 @@
           "limited",
           "regular"
         ],
-        "required": false
+        "required": false,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "preferred_stage_length_km": {
         "type": "number",
         "unit": "km",
-        "required": false
+        "required": false,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "bike_type": {
         "type": "enum",
@@ -251,24 +282,32 @@
           "other"
         ],
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "equipment",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "tire_width_mm": {
         "type": "number",
         "unit": "mm",
-        "required": false
+        "required": false,
+        "source_class": "equipment",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "bike_mass_kg": {
         "type": "number",
         "unit": "kg",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "equipment",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "luggage_mass_kg": {
         "type": "number",
         "unit": "kg",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "trip",
+        "wizard_policy": "advanced_trainer_or_trip_specific"
       },
       "lodging_preference": {
         "type": "enum",
@@ -279,7 +318,9 @@
           "mixed",
           "none"
         ],
-        "required": false
+        "required": false,
+        "source_class": "preferences",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "nutrition_preference": {
         "type": "enum",
@@ -289,11 +330,15 @@
           "real_food",
           "unknown"
         ],
-        "required": false
+        "required": false,
+        "source_class": "preferences",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "hydration_strategy_known": {
         "type": "boolean",
-        "required": false
+        "required": false,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "night_riding_tolerance": {
         "type": "enum",
@@ -302,7 +347,9 @@
           "limited",
           "high"
         ],
-        "required": false
+        "required": false,
+        "source_class": "declared",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "self_sufficiency_preference": {
         "type": "enum",
@@ -311,7 +358,9 @@
           "semi",
           "full"
         ],
-        "required": false
+        "required": false,
+        "source_class": "preferences",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "risk_tolerance": {
         "type": "enum",
@@ -320,7 +369,9 @@
           "moderate",
           "high"
         ],
-        "required": false
+        "required": false,
+        "source_class": "preferences",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "comfort_preference": {
         "type": "enum",
@@ -329,21 +380,27 @@
           "moderate",
           "minimal"
         ],
-        "required": false
+        "required": false,
+        "source_class": "preferences",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "body_mass_kg": {
         "type": "number",
         "unit": "kg",
         "required": false,
         "unknown_allowed": true,
-        "description": "Body mass; required for some relative nutrition/rehydration calculations"
+        "description": "Body mass; required for some relative nutrition/rehydration calculations",
+        "source_class": "measured",
+        "wizard_policy": "advanced_trainer_or_trip_specific"
       },
       "planned_sleep_h_per_24": {
         "type": "number",
         "unit": "h",
         "required": false,
         "unknown_allowed": true,
-        "description": "Planned or expected average sleep hours per 24 h during multi-day/ultra event"
+        "description": "Planned or expected average sleep hours per 24 h during multi-day/ultra event",
+        "source_class": "trip",
+        "wizard_policy": "advanced_trainer_or_trip_specific"
       },
       "gi_tolerance_high_cho": {
         "type": "enum",
@@ -355,31 +412,41 @@
         ],
         "required": false,
         "unknown_allowed": true,
-        "description": "Optional self-assessment of prior tolerance to high CHO rates during long efforts. Used only to shift relative risk bands; never as a hard eligibility gate. Unknown is a valid and common state."
+        "description": "Optional self-assessment of prior tolerance to high CHO rates during long efforts. Used only to shift relative risk bands; never as a hard eligibility gate. Unknown is a valid and common state.",
+        "source_class": "measured_or_declared",
+        "wizard_policy": "advanced_trainer_or_trip_specific"
       },
       "water_carry_capacity_l": {
         "type": "number",
         "unit": "l",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "equipment",
+        "wizard_policy": "prefill_from_ridemore"
       },
       "gel_cho_g": {
         "type": "number",
         "unit": "g",
         "required": false,
         "unknown_allowed": true,
-        "description": "g CHO in one gel the rider uses"
+        "description": "g CHO in one gel the rider uses",
+        "source_class": "equipment_or_product_label",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "bar_cho_g": {
         "type": "number",
         "unit": "g",
         "required": false,
-        "unknown_allowed": true
+        "unknown_allowed": true,
+        "source_class": "equipment_or_product_label",
+        "wizard_policy": "ask_only_if_missing_and_relevant"
       },
       "planned_pack": {
         "type": "object",
         "required": false,
-        "description": "gels, bananas, bars, other_cho_g counts"
+        "description": "gels, bananas, bars, other_cho_g counts",
+        "source_class": "trip",
+        "wizard_policy": "advanced_trainer_or_trip_specific"
       }
     }
   },
@@ -3675,6 +3742,122 @@
           "complete_for_load",
           "partial_load_inputs"
         ]
+      },
+      "user.annual_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "observed",
+        "description": "Optional observed profile attribute. Never request in the basic trip wizard."
+      },
+      "user.longest_ride_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "observed",
+        "description": "Optional observed profile attribute. Never request in the basic trip wizard."
+      },
+      "user.night_riding_experience": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.preferred_effort": {
+        "type": "enum",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.climbing_experience": {
+        "type": "enum",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.unpaved_experience": {
+        "type": "enum",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.preferred_stage_length_km": {
+        "type": "number",
+        "unit": "km",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.tire_width_mm": {
+        "type": "number",
+        "unit": "mm",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "equipment",
+        "description": "Optional equipment profile attribute. Never request in the basic trip wizard."
+      },
+      "user.bike_mass_kg": {
+        "type": "number",
+        "unit": "kg",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "equipment",
+        "description": "Optional equipment profile attribute. Never request in the basic trip wizard."
+      },
+      "user.hydration_strategy_known": {
+        "type": "boolean",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.risk_tolerance": {
+        "type": "enum",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.comfort_preference": {
+        "type": "enum",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "declared",
+        "description": "Optional declared profile attribute. Never request in the basic trip wizard."
+      },
+      "user.ftp_w": {
+        "type": "number",
+        "unit": "W",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "measured",
+        "wizard_policy": "advanced_trainer_only",
+        "description": "FTP from a valid test or trusted device source; never infer from average speed."
+      },
+      "user.vo2max_ml_kg_min": {
+        "type": "number",
+        "unit": "ml/kg/min",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "measured",
+        "wizard_policy": "advanced_trainer_only",
+        "description": "VO2max only from a credible measurement or device estimate with provenance."
+      },
+      "user.sodium_loss_mg_l": {
+        "type": "number",
+        "unit": "mg/L",
+        "required": false,
+        "unknown_allowed": true,
+        "source_class": "measured",
+        "wizard_policy": "advanced_trainer_only",
+        "description": "Measured sweat sodium concentration; never ask in the basic trip wizard."
       }
     },
     "naming_conventions": {
@@ -3731,7 +3914,7 @@
       "validation"
     ],
     "separation_of_concerns": {
-      "models": "Jedyna warstwa liczb: constants + formulas (DSL). PHP: eval_model_formulas. effort_decay koryguje CHO/fluid gdy spada power_factor.",
+      "models": "Jedyna warstwa liczb: constants + formulas (DSL). PHP: eval_model_formulas. effort_decay is pacing-only; it does not reduce CHO or fluid targets.",
       "calculations": "Kontrakt PHP 1:1 z models (engine_function, inputs, outputs). Bez drugiej kopii logiki.",
       "rules": "Cienkie wyzwalacze IF na path (plan.*, user.*, route.*). NIE powtarzają wzorów modeli. Emitują message_key + params_from_paths.",
       "recommendation_catalog": "Teksty PL/EN dla message_key.",
@@ -5249,13 +5432,44 @@
   },
   "engine_contract": {
     "walk": "For phase in decision_tree.phases (respect when/branch): merge new answers → run_models in order → evaluate rules for run_experts → apply suppression → continue",
-    "short_mode": "After P0/P1/P3 essentials, fill defaults_short from wizard_questions.json, skip P6 unless user opens advanced",
+    "short_mode": "Default short mode. Render only unanswered essential questions (normally 6-8 maximum); prefill from Ridemore profile/history, planner route analysis and POI adapter. Use operational defaults for specialist parameters, mark assumptions and uncertainty. Do not ask technical physiology questions.",
     "output": {
       "stage_demand": "required",
       "plan.hydration": "required after P3",
       "plan.nutrition": "required after P3",
       "recommendations": "rules with satisfied not clearing them",
       "suppressed": "list"
+    },
+    "profile_normalization": {
+      "input_groups": [
+        "rider_profile.declared",
+        "rider_profile.observed",
+        "rider_profile.measured",
+        "rider_profile.equipment",
+        "rider_profile.preferences"
+      ],
+      "legacy_model_paths": "Normalize into existing user.* paths without changing model formulas in this release.",
+      "precedence": [
+        "measured_current",
+        "observed_recent",
+        "declared",
+        "default"
+      ],
+      "preserve_provenance": true,
+      "never_impute": [
+        "user.body_mass_kg",
+        "user.sweat_rate_l_per_h",
+        "user.ftp_w",
+        "user.vo2max_ml_kg_min"
+      ]
+    },
+    "wizard_policy": {
+      "default_mode": "short",
+      "max_unanswered_questions_target": 8,
+      "ask_only_if_missing": true,
+      "manual_poi_entry": false,
+      "technical_measurements_deferred_to": "Advanced Trainer",
+      "missing_data_behavior": "unknown_or_estimated_with_uncertainty"
     }
   },
   "i18n": {
@@ -5468,6 +5682,83 @@
         "poi_list"
       ],
       "rule": "Exact stage count, stage distances, climb distribution, overnight stops and POI recommendations may be shown only when the relevant route profile, constraints and POI data are present and evaluated. Otherwise ask for missing inputs; do not generate a plausible-looking itinerary."
+    }
+  },
+  "profile_contract": {
+    "version": "1.0",
+    "description": "Grouped Ridemore profile input normalized into existing legacy user.* model paths. Profile data is a snapshot for reproducible analysis.",
+    "groups": {
+      "declared": [
+        "experience_level",
+        "multi_day_experience",
+        "ultra_experience",
+        "bikepacking_experience",
+        "night_riding_experience",
+        "preferred_effort",
+        "climbing_experience",
+        "unpaved_experience",
+        "hydration_strategy_known",
+        "night_riding_tolerance"
+      ],
+      "observed": [
+        "annual_km",
+        "typical_distance_km",
+        "longest_ride_km",
+        "typical_speed_kmh"
+      ],
+      "measured": [
+        "body_mass_kg",
+        "sweat_rate_l_per_h",
+        "ftp_w",
+        "vo2max_ml_kg_min",
+        "sodium_loss_mg_l"
+      ],
+      "equipment": [
+        "bike_type",
+        "tire_width_mm",
+        "bike_mass_kg",
+        "water_carry_capacity_l"
+      ],
+      "preferences": [
+        "nutrition_preference",
+        "self_sufficiency_preference",
+        "risk_tolerance",
+        "comfort_preference",
+        "lodging_preference"
+      ],
+      "trip_specific": [
+        "luggage_mass_kg",
+        "planned_sleep_h_per_24",
+        "planned_pack"
+      ]
+    },
+    "normalization": {
+      "legacy_paths": "Current models continue to consume user.* paths. PHP normalizer maps grouped input to these paths.",
+      "provenance_required": true,
+      "null_semantics": "null means unknown; never convert missing/null to zero.",
+      "snapshot": "Include generated_at, profile_version, source windows and activity counts with each profile snapshot."
+    },
+    "history_aggregation": {
+      "windows_days": [
+        90,
+        365
+      ],
+      "weekly_series_weeks": 52,
+      "representative_activities_max": 20,
+      "metrics": [
+        "ride_count",
+        "distance_km",
+        "elevation_gain_m",
+        "moving_time_h",
+        "median_distance_km",
+        "longest_distance_km",
+        "longest_duration_h",
+        "active_days",
+        "rides_per_week",
+        "surface_distribution",
+        "discipline_distribution"
+      ],
+      "requirements": "Every aggregate includes period_start, period_end, activity_count, generated_at and completeness/quality metadata."
     }
   }
 }
