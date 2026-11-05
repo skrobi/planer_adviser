@@ -1,5 +1,10 @@
 import unittest
+import json
+from pathlib import Path
 from adventure_engine_runner import run_inventory_ledger
+
+ROOT=Path(__file__).resolve().parents[1]
+REAL_KB=json.loads((ROOT / "adventure_knowledge.json").read_text(encoding="utf-8"))
 
 KB={"stage5_contracts":{"inventory_ledger":{"event_types":{
 "water_refill":{"resource":"water_l","requires":["verification_status in verified|official","availability_status=confirmed_available","quantity_status=confirmed","quantity>0"]},
@@ -15,7 +20,14 @@ def context(stages,water=2.0,cho=200.0):
  return {"trip":{"inventory_start":{"water_l":water,"cho_g":cho},"stage_sequence":stages}}
 
 class InventoryLedgerTests(unittest.TestCase):
- def test_stock_carries_forward(self):
+
+ def test_reference_interpreter_uses_real_knowledge_base_config(self):
+  c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":1,"cho_g":100},"inventory_events":[refill("poi",50,1)]}],water=1,cho=100)
+  run_inventory_ledger(REAL_KB,c)
+  row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["water"]
+  self.assertEqual(row["confirmed_resupply"],1)
+  self.assertEqual(row["closing_stock"],1)
+\n def test_stock_carries_forward(self):
   c=context([{"id":"a","ordinal":1,"planned_distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}},{"id":"b","ordinal":2,"planned_distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}}])
   run_inventory_ledger(KB,c); rows=c["plan"]["trip_accounting"]["inventory_ledger"]
   self.assertEqual(rows[0]["water"]["closing_stock"],1)
