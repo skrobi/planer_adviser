@@ -2,7 +2,7 @@
   "meta": {
     "system_name": "RideMore Expert System Knowledge Base",
     "schema_version": "1.0.0-alpha",
-    "knowledge_version": "0.9.7-stage5-inventory-ledger",
+    "knowledge_version": "0.9.8-stage5-poi-access",
     "created": "2026-11-04",
     "updated": "2026-11-05",
     "language": "pl-en",
@@ -123,6 +123,11 @@
         "version": "0.9.7-stage5-inventory-ledger",
         "date": "2026-11-05",
         "description": "Add multi-stage water and CHO inventory event schema and executable reference ledger with confirmation, route ordering, carry-forward, shortage and unknown propagation."
+      },
+      {
+        "version": "0.9.8-stage5-poi-access",
+        "date": "2026-11-05",
+        "description": "Add executable POI access eligibility assessment for confirmed water and CHO quantities using verification, freshness, opening-at-arrival, capacity, route position and detour. POIs remain options, not automatic inventory credits."
       }
     ],
     "notes": "Quality and source traceability prioritized over volume. Arbitrary thresholds avoided. Missing data handled via insufficient_data / user_input_required. Safety hierarchy enforced in conflict model (to be expanded)."
@@ -4170,6 +4175,45 @@
       "plan.trip_accounting.inventory_shortage.cho_g": {
         "type": "number",
         "unit": "g"
+      },
+      "poi.freshness_status": {
+        "type": "enum",
+        "values": [
+          "fresh",
+          "stale",
+          "unknown"
+        ],
+        "description": "Freshness normalized by Ridemore adapter; do not infer freshness from missing timestamp."
+      },
+      "poi.route_km": {
+        "type": "number",
+        "unit": "km",
+        "description": "Route chainage of the POI."
+      },
+      "poi.water_capacity_status": {
+        "type": "enum",
+        "values": [
+          "confirmed_sufficient",
+          "confirmed_limited",
+          "unknown"
+        ]
+      },
+      "poi.food_capacity_status": {
+        "type": "enum",
+        "values": [
+          "confirmed_sufficient",
+          "confirmed_limited",
+          "unknown"
+        ]
+      },
+      "plan.poi_access.candidate_details": {
+        "type": "array"
+      },
+      "plan.poi_access.confirmed_water_poi_ids": {
+        "type": "array"
+      },
+      "plan.poi_access.confirmed_food_poi_ids": {
+        "type": "array"
       }
     },
     "naming_conventions": {
@@ -6149,24 +6193,33 @@
         "poi.capacity_status",
         "poi.detour_distance_km",
         "poi.fetched_at",
-        "poi.valid_until"
+        "poi.valid_until",
+        "poi.freshness_status",
+        "poi.route_km",
+        "poi.water_capacity_status",
+        "poi.food_capacity_status"
       ],
       "outputs": [
         "plan.poi_access.status",
         "plan.poi_access.eligible_poi_ids",
         "plan.poi_access.excluded_poi_ids",
-        "plan.poi_access.reasons"
+        "plan.poi_access.reasons",
+        "plan.poi_access.candidate_details",
+        "plan.poi_access.confirmed_water_poi_ids",
+        "plan.poi_access.confirmed_food_poi_ids"
       ],
       "eligibility_rules": [
-        "Only official/verified POIs with sufficiently fresh data may be considered confirmed supply candidates.",
-        "open_status_at_arrival=open_confirmed is required for time-dependent resupply confirmation; unknown hours means unknown availability.",
-        "Water resupply requires known accessible water volume or an explicitly defined refill capacity; presence alone is insufficient.",
-        "Food resupply requires known CHO quantity for nutrition accounting; food category alone is insufficient.",
-        "Capacity status must be confirmed for the amount required by the plan; unknown capacity cannot close a supply gap.",
-        "Detour distance is included in route distance and time only when supplied by route/POI analysis; never silently omit a material detour.",
-        "Retain excluded POIs and the reason for exclusion; do not delete uncertain candidates from the audit trail."
+        "POI verification_status must be verified or official.",
+        "freshness_status must be fresh; stale or unknown freshness cannot confirm supply.",
+        "open_status_at_arrival must be open_confirmed. opening_hours alone is not enough unless the Ridemore adapter normalizes it against arrival_time_local.",
+        "route_km and detour_distance_km must be known non-negative numbers to position and cost the supply stop.",
+        "Water is eligible only when water_volume_l is positive and water_capacity_status is confirmed_sufficient.",
+        "Food is eligible only when food_cho_g is positive and food_capacity_status is confirmed_sufficient.",
+        "Unknown quantity, capacity, opening status, verification or freshness is excluded from confirmed supply and recorded with a reason.",
+        "Eligible POIs are potential supply options only. They are not automatically inserted into the rider's inventory ledger; the plan must explicitly select a resupply event."
       ],
-      "adapter_boundary": "Ridemore owns POI category taxonomy, master IDs, sources and verification workflow. This engine contract consumes normalized fields and does not define a second POI category dictionary."
+      "adapter_boundary": "Ridemore owns POI category taxonomy, master IDs, sources, opening-hours parsing, arrival-time status and freshness normalization. The engine consumes normalized capability and confirmation fields; it does not create a second POI category dictionary.",
+      "status": "reference_interpreter_implemented_contracts_pending_adapter_and_php_parity"
     },
     "stage_load_and_recovery": {
       "inputs": [
