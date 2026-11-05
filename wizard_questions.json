@@ -1,12 +1,45 @@
 {
   "meta": {
     "id": "ridemore_trip_wizard",
-    "version": "0.8.3",
-    "kb_version_target": "0.9.4-composition",
+    "version": "0.9.0",
+    "kb_version_target": "0.9.5-wizard-ux",
     "language_default": "pl",
-    "description": "Pytania wizarda zbierające dane wejściowe do silnika RideMore (profil, trasa, woda, żywienie, sprzęt). Odpowiedzi mapowane na data_dictionary / planning models. Tryb short/advanced na starcie; short stosuje defaults_short.",
+    "description": "Wizard progresywny: krótki tryb domyślny, pytania tylko dla brakujących danych, techniczne pomiary odłożone do Advanced Trainer. Dane z profilu, historii Ridemore i GPX są używane automatycznie.",
     "output_context_root": "wizard_answers → nested paths used by rule engine",
-    "updated": "2026-11-04"
+    "updated": "2026-11-05",
+    "default_mode": "short",
+    "ux_principles": [
+      "Short mode is the default and should contain no specialist physiology or product-composition questions.",
+      "Prefill from rider profile, activity history, planner route analysis and POI adapter before rendering questions.",
+      "Ask only when a value is missing and materially changes the requested analysis.",
+      "Allow skipping optional values; missing values must remain unknown and must not be converted to zero.",
+      "Technical measurements such as sweat rate, sodium concentration, FTP, VO2max and body mass belong to a future Advanced Trainer, not the trip wizard.",
+      "The trip wizard should normally present no more than 6-8 unanswered questions; conditional questions appear only when relevant.",
+      "Do not ask users to manually list POIs that already exist in Ridemore."
+    ],
+    "deferred_to_advanced_trainer": [
+      "user.sweat_rate_l_per_h",
+      "user.body_mass_kg",
+      "user.gi_tolerance_high_cho",
+      "user.ftp_w",
+      "user.vo2max_ml_kg_min",
+      "user.sodium_loss_mg_l"
+    ],
+    "prefill_sources": [
+      "rider_profile.declared",
+      "rider_profile.observed",
+      "rider_profile.measured",
+      "rider_profile.equipment",
+      "route_analysis",
+      "poi_adapter",
+      "event_data"
+    ],
+    "question_policy": {
+      "required": "Only required when the requested calculation cannot proceed without the value and no trusted source or default is available.",
+      "conditional": "Use ask_if_missing and show_if / required_when_shown; never ask again for an already supplied value.",
+      "manual_poi_entry": "disabled",
+      "unknown_values": "Preserve null/unknown and report resulting uncertainty."
+    }
   },
   "steps": [
     {
@@ -29,7 +62,7 @@
         "en": "Profile and experience"
       },
       "description": {
-        "pl": "Kim jesteś jako rowerzysta na tę wyprawę.",
+        "pl": "Wybierz rodzaj wyprawy i liczbę dni. Dane o doświadczeniu pobierzemy z profilu, jeśli są dostępne.",
         "en": "Your rider profile for this trip."
       }
     },
@@ -41,7 +74,7 @@
         "en": "Route and stage"
       },
       "description": {
-        "pl": "Dane z GPX lub ręczne. Silnik użyje dystansu, przewyższenia i nawierzchni.",
+        "pl": "Dystans, przewyższenie i nawierzchnię pobierzemy z trasy. Pytamy tylko o brakujące informacje.",
         "en": "From GPX or manual entry."
       }
     },
@@ -53,7 +86,7 @@
         "en": "Water and hydration"
       },
       "description": {
-        "pl": "Ile możesz zabrać i czy znasz swój pot.",
+        "pl": "Jeśli profil nie zawiera pojemności bidonów lub bukłaka, możesz ją podać. Nie pytamy o współczynnik potliwości.",
         "en": "Carry capacity and optional sweat rate."
       }
     },
@@ -65,7 +98,7 @@
         "en": "On-bike nutrition"
       },
       "description": {
-        "pl": "Preferencje i realna zawartość żeli / planowany zapas.",
+        "pl": "Preferencje i dokładny zapas jedzenia są opcjonalne. Bez listy produktów przygotujemy orientacyjny plan.",
         "en": "Preferences, gel CHO, planned pack."
       }
     },
@@ -77,7 +110,7 @@
         "en": "Equipment and logistics"
       },
       "description": {
-        "pl": "Bagaż, rower, punkty po drodze.",
+        "pl": "Dodatkowe informacje o bagażu, samowystarczalności i sprzęcie — tylko jeśli chcesz je uzupełnić.",
         "en": "Luggage, bike, on-route POIs."
       }
     },
@@ -355,67 +388,6 @@
       ]
     },
     {
-      "id": "q_body_mass_kg",
-      "step": "step_profile",
-      "order": 70,
-      "path": "user.body_mass_kg",
-      "type": "number",
-      "unit": "kg",
-      "required": false,
-      "label": {
-        "pl": "Masa ciała (kg)?",
-        "en": "Body mass (kg)?"
-      },
-      "min": 40,
-      "max": 150,
-      "help": {
-        "pl": "Opcjonalne. Potrzebne m.in. do progu ~2% utraty masy (hydratacja).",
-        "en": "Optional. Used e.g. for ~2% body-mass dehydration context."
-      },
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      }
-    },
-    {
-      "id": "q_planned_sleep_h",
-      "step": "step_profile",
-      "order": 80,
-      "path": "user.planned_sleep_h_per_24",
-      "type": "number",
-      "unit": "h",
-      "required": false,
-      "label": {
-        "pl": "Ile godzin snu na dobę planujesz w trakcie wyprawy?",
-        "en": "Planned sleep hours per 24 h?"
-      },
-      "min": 0,
-      "max": 12,
-      "show_if": {
-        "and": [
-          {
-            "path": "wizard.mode",
-            "eq": "advanced"
-          },
-          {
-            "path": "profile.type",
-            "in": [
-              "ultra",
-              "brevet",
-              "bikepacking",
-              "exploratory"
-            ]
-          }
-        ]
-      },
-      "modes": [
-        "advanced"
-      ]
-    },
-    {
       "id": "q_bike_type",
       "step": "step_profile",
       "order": 90,
@@ -542,28 +514,6 @@
       ]
     },
     {
-      "id": "q_unpaved_fraction",
-      "step": "step_route",
-      "order": 40,
-      "path": "route.unpaved_fraction",
-      "type": "number",
-      "unit": "0-1",
-      "required": false,
-      "label": {
-        "pl": "Jaka część trasy to nieasfalt (0–1)? np. 0.55 = 55%",
-        "en": "Unpaved fraction 0–1?"
-      },
-      "min": 0,
-      "max": 1,
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      }
-    },
-    {
       "id": "q_dominant_surface",
       "step": "step_route",
       "order": 50,
@@ -617,58 +567,6 @@
       ]
     },
     {
-      "id": "q_estimated_time_hours",
-      "step": "step_route",
-      "order": 60,
-      "path": "ride.estimated_time_hours",
-      "type": "number",
-      "unit": "h",
-      "required": false,
-      "label": {
-        "pl": "Szacowany czas jazdy etapu (h) — zostaw puste, policzy silnik",
-        "en": "Estimated moving time (h) — leave empty to auto-estimate"
-      },
-      "min": 0.5,
-      "max": 72,
-      "help": {
-        "pl": "Jeśli puste: dystans / typowa prędkość + korekty.",
-        "en": "If empty: distance/speed + adjustments."
-      },
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      }
-    },
-    {
-      "id": "q_temperature_c",
-      "step": "step_route",
-      "order": 70,
-      "path": "environment.temperature_c",
-      "type": "number",
-      "unit": "°C",
-      "required": false,
-      "label": {
-        "pl": "Spodziewana temperatura powietrza (°C)?",
-        "en": "Expected air temperature (°C)?"
-      },
-      "min": -20,
-      "max": 45,
-      "help": {
-        "pl": "Wpływa na operacyjny mnożnik hydratacji.",
-        "en": "Affects operational hydration multiplier."
-      },
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      }
-    },
-    {
       "id": "q_water_capacity_l",
       "step": "step_hydration",
       "order": 10,
@@ -715,60 +613,6 @@
       ]
     },
     {
-      "id": "q_sweat_rate",
-      "step": 0.05,
-      "order": 30,
-      "path": "user.sweat_rate_l_per_h",
-      "type": "number",
-      "unit": "L/h",
-      "required": false,
-      "label": {
-        "pl": "Znasz swój pot (L/h z ważenia przed/po)?",
-        "en": "Do you know your sweat rate (L/h)?"
-      },
-      "min": 0.2,
-      "max": 3,
-      "help": {
-        "pl": "Jeśli nie znasz — silnik użyje domyślnego ~0,4–0,8 L/h (operacyjnie). Lepiej zmierzyć na treningu.",
-        "en": "If unknown, engine uses operational default ~0.4–0.8 L/h."
-      },
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      }
-    },
-    {
-      "id": "q_verified_water_pois",
-      "step": "step_hydration",
-      "order": 40,
-      "path": "logistics.verified_water_pois_km",
-      "type": "number_list",
-      "unit": "km",
-      "required": false,
-      "label": {
-        "pl": "Na których kilometrach masz **zweryfikowaną** wodę (sklep/źródło/kran)?",
-        "en": "At which km marks is water verified?"
-      },
-      "help": {
-        "pl": "Tylko punkty pewne. Nie dodawaj 'może jest sklep'. Lista np. 25, 48, 70",
-        "en": "Only verified points. e.g. 25, 48, 70"
-      },
-      "placeholder": {
-        "pl": "np. 30, 55",
-        "en": "e.g. 30, 55"
-      },
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      }
-    },
-    {
       "id": "q_nutrition_preference",
       "step": "step_nutrition",
       "order": 10,
@@ -813,128 +657,6 @@
         "short",
         "advanced"
       ]
-    },
-    {
-      "id": "q_gel_cho_g",
-      "step": "step_nutrition",
-      "order": 20,
-      "path": "user.gel_cho_g",
-      "type": "number",
-      "unit": "g",
-      "required": false,
-      "label": {
-        "pl": "Ile gramów węglowodanów ma **jeden** Twój żel?",
-        "en": "How many grams of CHO in **one** of your gels?"
-      },
-      "min": 15,
-      "max": 60,
-      "placeholder": {
-        "pl": "np. 22 albo 45 — z etykiety",
-        "en": "e.g. 22 or 45 — from label"
-      },
-      "help": {
-        "pl": "Opcjonalne. Jeśli nie wiesz czego będziesz jadł — pomiń. Silnik przyjmie normalne odżywianie (bufor CHO), bez konkretnych żeli.",
-        "en": "Optional. If you do not know products yet, skip. Engine assumes normal fueling (CHO buffer), not specific gels."
-      },
-      "show_if": {
-        "path": "user.nutrition_preference",
-        "in": [
-          "gels",
-          "mixed",
-          "unknown"
-        ]
-      },
-      "modes": [
-        "short",
-        "advanced"
-      ]
-    },
-    {
-      "id": "q_bar_cho_g",
-      "step": "step_nutrition",
-      "order": 30,
-      "path": "user.bar_cho_g",
-      "type": "number",
-      "unit": "g",
-      "required": false,
-      "label": {
-        "pl": "Ile g CHO ma jeden Twój baton (jeśli używasz)?",
-        "en": "CHO grams per bar?"
-      },
-      "min": 10,
-      "max": 80,
-      "show_if": {
-        "and": [
-          {
-            "path": "wizard.mode",
-            "eq": "advanced"
-          },
-          {
-            "path": "user.nutrition_preference",
-            "in": [
-              "mixed",
-              "real_food",
-              "unknown"
-            ]
-          }
-        ]
-      },
-      "modes": [
-        "advanced"
-      ]
-    },
-    {
-      "id": "q_gi_tolerance",
-      "step": "step_nutrition",
-      "order": 40,
-      "path": "user.gi_tolerance_high_cho",
-      "type": "single_choice",
-      "required": true,
-      "label": {
-        "pl": "Jak znosi żołądek wyższe ilości żeli / cukrów na długich jazdach?",
-        "en": "GI tolerance for higher CHO rates?"
-      },
-      "options": [
-        {
-          "value": "unknown",
-          "label": {
-            "pl": "Nie wiem / nie testowałem",
-            "en": "Unknown / untested"
-          }
-        },
-        {
-          "value": "low",
-          "label": {
-            "pl": "Słabo — szybko mam problemy",
-            "en": "Low — issues quickly"
-          }
-        },
-        {
-          "value": "moderate",
-          "label": {
-            "pl": "Umiarkowanie",
-            "en": "Moderate"
-          }
-        },
-        {
-          "value": "trained",
-          "label": {
-            "pl": "Dobrze — ćwiczę gut training",
-            "en": "Trained"
-          }
-        }
-      ],
-      "help": {
-        "pl": "Nie blokuje Cię. Wpływa na pasmo ryzyka i propozycję stawek CHO.",
-        "en": "Does not block you; shifts risk band and CHO targets."
-      },
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      }
     },
     {
       "id": "q_pack_declared",
@@ -1057,30 +779,6 @@
             "eq": true
           }
         ]
-      }
-    },
-    {
-      "id": "q_verified_food_pois",
-      "step": "step_nutrition",
-      "order": 90,
-      "path": "logistics.verified_food_pois_km",
-      "type": "number_list",
-      "unit": "km",
-      "required": false,
-      "label": {
-        "pl": "Na których km masz **zweryfikowane** jedzenie (sklep/restauracja)?",
-        "en": "Verified food POI km marks?"
-      },
-      "placeholder": {
-        "pl": "np. 40, 65",
-        "en": "e.g. 40, 65"
-      },
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
       }
     },
     {
@@ -1358,50 +1056,6 @@
         "path": "trip.horizon",
         "eq": "multi_day"
       }
-    },
-    {
-      "id": "q_planned_stops_hours",
-      "step": "step_event",
-      "path": "planned_stops_hours",
-      "type": "number",
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "path": "wizard.mode",
-        "eq": "advanced"
-      },
-      "required": false,
-      "label": {
-        "pl": "Łączny planowany czas postojów (godziny)",
-        "en": "Total planned stop time (hours)"
-      }
-    },
-    {
-      "id": "q_planned_sleep_hours",
-      "step": "step_event",
-      "path": "planned_sleep_hours",
-      "type": "number",
-      "modes": [
-        "advanced"
-      ],
-      "show_if": {
-        "and": [
-          {
-            "path": "wizard.mode",
-            "eq": "advanced"
-          },
-          {
-            "path": "trip.horizon",
-            "eq": "multi_day"
-          }
-        ]
-      },
-      "required": false,
-      "label": {
-        "pl": "Łączny planowany czas snu (godziny)",
-        "en": "Total planned sleep time (hours)"
-      }
     }
   ],
   "answer_example_demo_85km": {
@@ -1452,8 +1106,8 @@
   },
   "defaults_short": {
     "description": {
-      "pl": "Wartości wstawiane automatycznie w trybie skróconym, jeśli użytkownik nie podał własnych. Operacyjne, nie medyczne.",
-      "en": "Auto-filled in short mode when user leaves fields empty. Operational, not medical."
+      "pl": "Wartości operacyjne uzupełniane automatycznie. Użytkownik nie musi znać parametrów fizjologicznych ani szczegółów produktów. Każdy default musi być oznaczony jako założenie, a nie pomiar.",
+      "en": "Operational values filled automatically. Users do not need specialist physiology or product data. Every default must be marked as an assumption, not a measurement."
     },
     "values": {
       "user.body_mass_kg": null,
@@ -1468,21 +1122,27 @@
       "environment.temperature_c": 20,
       "logistics.verified_water_pois_km": [],
       "logistics.verified_food_pois_km": [],
-      "user.luggage_mass_kg": 10,
+      "user.luggage_mass_kg": null,
       "event.has_time_limit": false,
       "event.time_limit_hours": null,
       "event.intermediate_controls_timed": false,
       "ride.estimated_time_hours": null,
       "user.planned_pack": null,
-      "user.planned_pack_declared": false
+      "user.planned_pack_declared": false,
+      "user.nutrition_preference": "mixed"
     },
     "notes": {
       "user.gel_cho_g": "25 g only if user skipped gel question; mark plan.nutrition.used_default_gel_cho=true",
       "user.sweat_rate_l_per_h": "null → hydration model uses 0.4–0.8 L/h operational default",
       "logistics.verified_*_pois_km": "empty → no credit for resupply until user adds verified POIs",
-      "route.unpaved_fraction": "0.3 generic mixed; surface answer still collected in short mode",
-      "nutrition_unknown": "If pack not given, engine nutrition mode=buffer: assume normal CHO rate from stage_demand, start buffer ~4h equivalent, resupply by km — no gel SKU required.",
-      "user_planned_pack_declared": "false selects buffer mode. Never infer a declared pack from missing or zero item counts."
+      "route.unpaved_fraction": "0.3 is a generic mixed-route estimate only when surface composition is unavailable; mark estimated and lower confidence. Prefer GPX/route surface data.",
+      "nutrition_unknown": "If pack is not declared, use buffer mode and state that the plan is indicative. Do not claim the user's actual carried food is insufficient.",
+      "user_planned_pack_declared": "false selects buffer mode. The basic wizard does not ask for a detailed food inventory; it is optional in advanced mode.",
+      "user.luggage_mass_kg": "null → luggage contribution is omitted and input completeness is marked partial; never assume a generic 10 kg as the rider's actual luggage.",
+      "user.nutrition_preference": "mixed is a neutral planning preference, not a measured or binding diet choice.",
+      "environment.temperature_c": "20°C is a neutral scenario assumption only when no forecast is available; it must not be presented as the event forecast or as a personalized heat assessment.",
+      "logistics.verified_water_pois_km": "No manually entered list is required; the Ridemore POI adapter supplies available records. Empty means no verified POI was passed, not that none exists.",
+      "logistics.verified_food_pois_km": "No manually entered list is required; the Ridemore POI adapter supplies available records. Empty means no verified POI was passed, not that none exists."
     }
   },
   "ui_logic": {
@@ -1910,5 +1570,12 @@
         "description": "Total planned sleep during the event; missing means margin estimate is partial."
       }
     }
+  },
+  "output_context_root": "adventure_request → normalized profile and route context → analysis contracts",
+  "engineering_notes": {
+    "profile_normalization": "Ridemore may send grouped rider_profile.declared/observed/measured/equipment/preferences. A normalizer maps trusted values into legacy user.* paths consumed by current models. Preserve source and status.",
+    "route_prefill": "If route geometry or route analysis is supplied by the planner, do not ask for GPX, distance, elevation or dominant surface again.",
+    "poi_prefill": "POIs come from the Ridemore adapter. Never ask users to type kilometre lists of water or food POIs.",
+    "technical_measurements": "Sweat rate, body mass, sodium loss, FTP, VO2max and similar measurements are not trip-wizard questions. Use conservative model assumptions or mark the dependent calculation partial; allow later trainer/profile enrichment."
   }
 }
