@@ -394,14 +394,78 @@ def run_inventory_ledger(kb,ctx):
     return {"status":overall,"stages":len(rows),"water_shortage_l":water_short,"cho_shortage_g":cho_short}
 
 
+
+def assess_poi_access(kb,ctx):
+    """Filter POIs using the normalized, source-backed access contract; never auto-credit inventory."""
+    spec=kb.get("stage5_contracts",{}).get("poi_access",{})
+    logistics=ctx.get("logistics",{})
+    candidates=logistics.get("poi_candidates",[]) if isinstance(logistics,dict) else []
+    details=[]; eligible=[]; excluded=[]; water_ids=[]; food_ids=[]; reasons=[]
+    if not isinstance(candidates,list):
+        candidates=[]
+    for poi in candidates:
+        if not isinstance(poi,dict):
+            excluded.append(None); reasons.append({"poi_id":None,"reason":"invalid_candidate_shape"}); continue
+        pid=poi.get("id")
+        poi_reasons=[]; resources=[]
+        if poi.get("verification_status") not in ("verified","official"):
+            poi_reasons.append("poi_not_verified")
+        if poi.get("freshness_status")!="fresh":
+            poi_reasons.append("poi_not_confirmed_fresh")
+        if poi.get("open_status_at_arrival")!="open_confirmed":
+            poi_reasons.append("not_confirmed_open_at_arrival")
+        route_km=poi.get("route_km")
+        detour=poi.get("detour_distance_km")
+        if not isinstance(route_km,(int,float)) or isinstance(route_km,bool) or route_km<0:
+            poi_reasons.append("route_position_unknown")
+        if not isinstance(detour,(int,float)) or isinstance(detour,bool) or detour<0:
+            poi_reasons.append("detour_distance_unknown")
+        base_ok=not poi_reasons
+        water=poi.get("water_volume_l")
+        water_capacity=poi.get("water_capacity_status",poi.get("capacity_status"))
+        if isinstance(water,(int,float)) and not isinstance(water,bool) and water>0 and water_capacity=="confirmed_sufficient" and base_ok:
+            resources.append("water"); water_ids.append(pid)
+        elif water is not None or poi.get("water_capacity_status") is not None:
+            reasons.append({"poi_id":pid,"resource":"water","reason":"water_quantity_or_capacity_not_confirmed"})
+        food=poi.get("food_cho_g")
+        food_capacity=poi.get("food_capacity_status",poi.get("capacity_status"))
+        if isinstance(food,(int,float)) and not isinstance(food,bool) and food>0 and food_capacity=="confirmed_sufficient" and base_ok:
+            resources.append("food"); food_ids.append(pid)
+        elif food is not None or poi.get("food_capacity_status") is not None:
+            reasons.append({"poi_id":pid,"resource":"food","reason":"food_cho_or_capacity_not_confirmed"})
+        if resources:
+            eligible.append(pid)
+        else:
+            excluded.append(pid)
+            for reason in poi_reasons:
+                reasons.append({"poi_id":pid,"reason":reason})
+            if not poi_reasons:
+                reasons.append({"poi_id":pid,"reason":"no_confirmed_supply_quantity"})
+        details.append({"poi_id":pid,"route_km":route_km,"detour_distance_km":detour,
+                        "arrival_time_local":poi.get("arrival_time_local"),
+                        "eligible_resources":resources,"base_requirements_confirmed":base_ok,
+                        "reasons":poi_reasons})
+    status="insufficient_data" if not candidates else ("confirmed" if eligible else "partial")
+    set_path(ctx,"plan.poi_access.status",status)
+    set_path(ctx,"plan.poi_access.eligible_poi_ids",eligible)
+    set_path(ctx,"plan.poi_access.excluded_poi_ids",excluded)
+    set_path(ctx,"plan.poi_access.reasons",reasons)
+    set_path(ctx,"plan.poi_access.candidate_details",details)
+    set_path(ctx,"plan.poi_access.confirmed_water_poi_ids",water_ids)
+    set_path(ctx,"plan.poi_access.confirmed_food_poi_ids",food_ids)
+    return {"status":status,"candidate_count":len(candidates),"eligible_count":len(eligible),
+            "confirmed_water_count":len(water_ids),"confirmed_food_count":len(food_ids)}
+
+
 def execute(kb, scenario):
     ctx=json.loads(json.dumps(scenario["input"]))
     model_trace=run_models(kb,ctx)
     inventory_trace=run_inventory_ledger(kb,ctx)
+    poi_trace=assess_poi_access(kb,ctx)
     recs=run_rules(kb,ctx)
     composed=compose_recommendations(kb,ctx,recs)
     return {"scenario_id":scenario["id"],"knowledge_version":kb["meta"]["knowledge_version"],
-            "derived":ctx,"model_trace":model_trace,"inventory_trace":inventory_trace,"recommendations":recs,
+            "derived":ctx,"model_trace":model_trace,"inventory_trace":inventory_trace,"poi_trace":poi_trace,"recommendations":recs,
             "composed_recommendations":composed,"fired_rule_ids":[r["id"] for r in recs]}
 
 def main():
