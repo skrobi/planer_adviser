@@ -508,7 +508,7 @@ def run_trip_accounting(kb,ctx):
             "planned_sleep_hours":sleep if valid(sleep) else None,
             "recovery_interpretation":"planned interval only; not a validated recovery score"})
     all_complete=all(v==0 for v in unknown_counts.values())
-    any_known=any(v>0 for v in subtotals.values())
+    any_known=any(unknown_counts[name] < len(normalized) for name in components)
     completeness="complete" if all_complete else ("partial" if any_known else "insufficient_data")
     elapsed=totals["moving"]+totals["stops"]+totals["sleep"] if all_complete else None
     set_path(ctx,"trip.total_moving_hours",totals["moving"])
