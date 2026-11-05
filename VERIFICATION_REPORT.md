@@ -64,3 +64,10 @@ GitHub Actions run `41990591353` for PR #3 completed successfully:
 - JSON-driven reference engine: completed successfully.
 - Scenario verifier: **10 passed, 0 failed**.
 - This verifies the declarative contracts and current Python reference behavior only. It does not verify PHP execution, multi-stage inventory carry-forward, POI opening-time calculations, or real Ridemore adapter integration.
+
+
+## 13. Multi-stage inventory ledger – reference execution (2026-11-05)
+
+The Python reference interpreter now executes the KB-defined inventory event contract for water and CHO. Initial stock is explicit; missing values remain unknown. Confirmed resupply requires verified/official source, confirmed availability and confirmed positive quantity. Loss events require confirmed positive quantity. Stages carry forward physical remaining stock; route-positioned events are processed in order, and later resupply cannot erase an earlier shortage. Unknown demand or starting stock is never replaced with zero.
+
+For this reference implementation, stage demand is allocated linearly by route distance between events. This is a transparent accounting approximation, not a physiological intake curve. Stage demand must be supplied by stage-level nutrition and hydration models. PHP parity and Ridemore adapter integration remain pending.
