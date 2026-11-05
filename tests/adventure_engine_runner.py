@@ -372,7 +372,15 @@ def run_inventory_ledger(kb,ctx):
     trip=ctx.get("trip",{})
     stages=trip.get("stage_sequence") if isinstance(trip,dict) else None
     if not spec or not isinstance(stages,list) or not stages: return None
-    stages=sorted(stages,key=lambda s:(s.get("ordinal",0),str(s.get("id",""))))
+    normalized=[]
+    for index, original in enumerate(stages, start=1):
+        stage=dict(original)
+        stage.setdefault("ordinal", stage.get("day", index))
+        stage.setdefault("id", f"stage_{stage['ordinal']}")
+        if "planned_distance_km" not in stage and "distance_km" in stage:
+            stage["planned_distance_km"]=stage["distance_km"]
+        normalized.append(stage)
+    stages=sorted(normalized,key=lambda s:(s.get("ordinal",0),str(s.get("id",""))))
     start=trip.get("inventory_start",{})
     water,water_short=_process_inventory_resource(stages,"water_l",start.get("water_l") if isinstance(start,dict) else None,spec)
     cho,cho_short=_process_inventory_resource(stages,"cho_g",start.get("cho_g") if isinstance(start,dict) else None,spec)
