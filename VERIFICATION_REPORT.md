@@ -42,3 +42,16 @@ This pass improves the safety framing and corrects effort-decay outputs. It does
 The trip wizard is intentionally not a physiology questionnaire. Short mode is the default and has at most eight candidate questions; profile, activity history, route analysis and POI data must be prefilled before rendering. Sweat rate, body mass, GI tolerance, FTP, VO2max and sweat sodium are deferred to a future Advanced Trainer. Manual POI kilometre lists are removed. Unknown luggage mass is no longer replaced with a generic 10 kg assumption.
 
 The fields `ask_if_missing`, `required_when_missing` and `prefill_from` are declarative requirements for the future PHP wizard renderer. The current repository does not yet include that production renderer, so these tests validate the JSON contract rather than live UI behavior.
+
+
+## 11. Stage 5 – canonical multi-stage and POI contracts (2026-11-05)
+
+The first Stage 5 pass defines contracts, not production calculations. It separates moving time from stops and sleep; establishes ordered shared stage identity; defines trip aggregation completeness; and specifies POI arrival-time, verification, freshness, quantity, capacity and detour requirements. Ridemore remains the owner of POI taxonomy.
+
+A cumulative physiological fatigue score is deliberately not introduced: current inputs and evidence do not justify collapsing distance, ascent, energy proxy, sleep and recovery into one validated scalar. The contract instead requires a transparent per-stage load ledger and explicit inter-stage recovery context.
+
+Multi-stage nutrition/hydration inventory carry-forward is not yet executable. It requires explicit inventory events (start stock, consumption, confirmed purchases/refills, losses and end stock) per stage. The next implementation pass must add this event ledger before claiming trip-level supply sufficiency.
+
+The CI failure on the Stage 4 branch was traced to a missing `meta.question_policy.ask_only_if_missing` key in the wizard metadata. The key is now explicitly declared and covered by a contract test on the Stage 5 branch.
+
+These contracts are not production PHP behavior. PHP execution, real POI adapter mapping, GPX track-segment continuity, and end-to-end tests remain pending.
