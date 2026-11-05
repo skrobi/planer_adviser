@@ -76,8 +76,13 @@ For this reference implementation, stage demand is allocated linearly by route d
 ## 14. Inventory ledger CI verification (2026-11-05)
 
 The latest PR #3 GitHub Actions run for commit `2bcebec699800878e5dfa358b11e397a6e9e4331` completed successfully:
-- Python unittest suite: **50 tests passed**.
+- Python unittest suite: **51 tests passed**.
 - Inventory ledger tests: 11 passed, covering stage carry-forward, CHO resupply, verified water refill, closed POI, estimated food quantity, confirmed loss, event ordering, shortage persistence and unknown propagation.
 - JSON-driven reference engine and scenario verifier: **10 passed, 0 failed**.
 
 The inventory ledger is now executed by the Python reference interpreter using the event rules in the knowledge base. It is still not production PHP and is not yet connected to live Ridemore POI records. The linear-by-distance demand allocation is an explicit approximation requiring review before production use.
+
+
+## 15. Canonical stage normalization for inventory
+
+The reference ledger accepts the GPX StagePlanner's current aliases (`day`, `distance_km`) and normalizes them to stable `ordinal`, `id` and `planned_distance_km` fields. The canonical stage contract explicitly requires stage-specific demand from NutritionExpert and HydrationExpert; trip-level demand must not be copied onto every stage.
