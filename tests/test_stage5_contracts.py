@@ -58,6 +58,14 @@ class Stage5ContractTests(unittest.TestCase):
         ]
         self.assertEqual(sorted(set(required) - set(paths)), [])
 
+
+    def test_inventory_event_resources_are_explicit(self):
+        events = KB["stage5_contracts"]["inventory_ledger"]["event_types"]
+        self.assertEqual(events["water_refill"]["resource"], "water_l")
+        self.assertEqual(events["cho_resupply"]["resource"], "cho_g")
+        self.assertEqual(events["water_loss"]["resource"], "water_l")
+        self.assertEqual(events["cho_loss"]["resource"], "cho_g")
+
     def test_short_wizard_policy_is_explicit(self):
         self.assertTrue(WIZARD["meta"]["question_policy"]["ask_only_if_missing"])
 
