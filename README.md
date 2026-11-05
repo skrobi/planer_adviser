@@ -587,3 +587,10 @@ Przygotowano zmianę na gałęzi `feature/stage-4-wizard-simplification`:
 - dodano testy kontraktu UX wizarda.
 
 **Uwaga implementacyjna:** `ask_if_missing`, `required_when_missing` i `prefill_from` są deklaracją kontraktu. Renderer PHP musi je obsłużyć przed pokazaniem pytań. Obecne testy JSON nie potwierdzają jeszcze działania produkcyjnego wizarda.
+
+
+## Stage 5 contract work
+
+The current knowledge base adds a canonical multi-stage contract: stable stage identity, moving time separated from stops/sleep, trip-level completeness, POI availability/quantity/capacity/freshness/detour semantics, and a transparent stage-load ledger. The contract intentionally does not invent a cumulative fatigue score or claim that POI presence proves resupply.
+
+See `stage5_contracts` in `adventure_knowledge.json`. This is a declarative target contract; the Python reference interpreter and production PHP engine do not yet execute multi-stage inventory carry-forward or POI arrival-time assessment.
