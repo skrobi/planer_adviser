@@ -93,3 +93,14 @@ The reference ledger accepts the GPX StagePlanner's current aliases (`day`, `dis
 The reference interpreter now evaluates normalized POI candidates separately from inventory events. A POI can be shown as a confirmed water/food option only when source verification, freshness, open-at-arrival status, route position, detour and resource-specific confirmed quantity/capacity are present. Opening-hours parsing and freshness normalization remain Ridemore adapter responsibilities.
 
 A confirmed POI is only a potential resupply option. It does not change inventory automatically; the rider's plan must explicitly select a resupply event. This avoids assuming a purchase or refill that the rider has not selected.
+
+
+## 17. Final Stage 5 reference verification (2026-11-05)
+
+GitHub Actions run `41991916640` for commit `313b377c5613fd8458838c17f9fb8f995127e9cf` completed successfully:
+- Python unittest suite: **54 tests passed**.
+- JSON-driven reference engine completed successfully.
+- Scenario verifier: **10 passed, 0 failed**.
+- Inventory ledger and POI access tests passed.
+
+This confirms the Python reference implementation and declarative contracts only. Production PHP execution, Ridemore POI adapter mapping, and end-to-end parity remain outstanding.
