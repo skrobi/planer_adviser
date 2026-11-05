@@ -55,3 +55,12 @@ Multi-stage nutrition/hydration inventory carry-forward is not yet executable. I
 The CI failure on the Stage 4 branch was traced to a missing `meta.question_policy.ask_only_if_missing` key in the wizard metadata. The key is now explicitly declared and covered by a contract test on the Stage 5 branch.
 
 These contracts are not production PHP behavior. PHP execution, real POI adapter mapping, GPX track-segment continuity, and end-to-end tests remain pending.
+
+
+## 12. Stage 5 branch CI verification (2026-11-05)
+
+GitHub Actions run `41990591353` for PR #3 completed successfully:
+- Python unittest suite: **39 tests passed**.
+- JSON-driven reference engine: completed successfully.
+- Scenario verifier: **10 passed, 0 failed**.
+- This verifies the declarative contracts and current Python reference behavior only. It does not verify PHP execution, multi-stage inventory carry-forward, POI opening-time calculations, or real Ridemore adapter integration.
