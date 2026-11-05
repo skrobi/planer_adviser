@@ -163,3 +163,20 @@ Poniższe zadania mogą być rozpoczynane dopiero po zaakceptowaniu Task 0.
 | Task 8 | Testy integracyjne, regresyjne i walidacja wyników | Task 1–7 |
 
 Szczegółowe specyfikacje techniczne kolejnych zadań powinny być opracowane z uwzględnieniem zaakceptowanych mockupów i istniejącej architektury. Nie należy implementować funkcji wykraczających poza zatwierdzony zakres bez uzgodnienia z właścicielem produktu.
+
+
+## Szczegółowe instrukcje wykonawcze
+
+Skrócona tabela powyżej jest tylko mapą kolejności. Pełne opisy zakresu, założeń, wejść/wyjść, zależności, obsługi błędów i kryteriów odbioru znajdują się w katalogu [tasks/](tasks/README.md):
+
+- [Task 0 – audyt istniejącego UI, mockupy i akceptacja](tasks/TASK-00-UX-MOCKUPS.md)
+- [Task 1 – kontrakty danych i DTO](tasks/TASK-01-DATA-CONTRACTS.md)
+- [Task 2 – GPX Analyzer](tasks/TASK-02-GPX-ANALYZER.md)
+- [Task 3 – Stage Planner](tasks/TASK-03-STAGE-PLANNER.md)
+- [Task 4 – Stage Demand Model](tasks/TASK-04-STAGE-DEMAND-MODEL.md)
+- [Task 5 – integracja Adventure Engine](tasks/TASK-05-ADVENTURE-ENGINE-INTEGRATION.md)
+- [Task 6 – PHP Service i API](tasks/TASK-06-PHP-SERVICE-API.md)
+- [Task 7 – integracja z istniejącym planerem](tasks/TASK-07-PLANNER-UI-INTEGRATION.md)
+- [Task 8 – walidacja i wydanie](tasks/TASK-08-VALIDATION-AND-RELEASE.md)
+
+Każdy task jest osobnym dokumentem wykonawczym. Przed rozpoczęciem zadania należy spełnić jego warunek wejścia i zapoznać się z kryteriami odbioru. Task 0 pozostaje twardą bramką: bez wyraźnej akceptacji mockupów nie wolno rozpocząć Task 1.
