@@ -28,6 +28,15 @@ class InventoryLedgerTests(unittest.TestCase):
   self.assertEqual(row["confirmed_resupply"],1)
   self.assertEqual(row["closing_stock"],1)
 
+
+ def test_accepts_gpx_stage_planner_alias_fields(self):
+  c=context([{"day":2,"distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}},{"day":1,"distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}}])
+  run_inventory_ledger(KB,c)
+  rows=c["plan"]["trip_accounting"]["inventory_ledger"]
+  self.assertEqual(rows[0]["stage_id"],"stage_1")
+  self.assertEqual(rows[1]["stage_id"],"stage_2")
+  self.assertEqual(rows[1]["water"]["opening_stock"],1)
+
  def test_stock_carries_forward(self):
   c=context([{"id":"a","ordinal":1,"planned_distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}},{"id":"b","ordinal":2,"planned_distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}}])
   run_inventory_ledger(KB,c); rows=c["plan"]["trip_accounting"]["inventory_ledger"]
