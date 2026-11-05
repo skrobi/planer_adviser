@@ -61,4 +61,5 @@ class InventoryLedgerTests(unittest.TestCase):
   c=context([{"id":"a","ordinal":1,"planned_distance_km":100,"inventory_need":{"water_l":1,"cho_g":100},"inventory_events":[refill("unknown",50,3,availability="unknown")]}],water=2)
   run_inventory_ledger(KB,c); row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["water"]
   self.assertEqual(row["status"],"partial"); self.assertEqual(c["plan"]["trip_accounting"]["inventory_status"],"partial")
-\nif __name__=="__main__": unittest.main(verbosity=2)
+
+if __name__=="__main__": unittest.main(verbosity=2)
