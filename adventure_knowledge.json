@@ -3429,8 +3429,7 @@
       "stage.distance_km": {
         "type": "number",
         "unit": "km",
-        "deprecated": true,
-        "alias_of": "stage.planned_distance_km"
+        "description": "Distance field emitted by GPX StagePlanner; normalized to stage.planned_distance_km at the input boundary."
       },
       "route.distance_km": {
         "type": "number",
@@ -6101,7 +6100,13 @@
       "legacy_time_alias": "stage.estimated_time_hours",
       "stops": "stage.planned_stops_hours",
       "sleep": "stage.planned_sleep_hours",
-      "time_semantics": "stage.estimated_time_hours is retained as a compatibility alias for moving time only. It must never contain stops or sleep."
+      "time_semantics": "stage.estimated_time_hours is retained as a compatibility alias for moving time only. It must never contain stops or sleep.",
+      "inventory_need": {
+        "water_l": "stage.inventory_need.water_l",
+        "cho_g": "stage.inventory_need.cho_g",
+        "producer": "HydrationExpert and NutritionExpert, executed once for each canonical stage"
+      },
+      "inventory_events": "stage.inventory_events"
     },
     "trip_accounting": {
       "inputs": [
@@ -6215,7 +6220,8 @@
         "stage.planned_distance_km",
         "stage.inventory_need.water_l",
         "stage.inventory_need.cho_g",
-        "stage.inventory_events"
+        "stage.inventory_events",
+        "stage.distance_km"
       ],
       "outputs": [
         "plan.trip_accounting.inventory_ledger",
@@ -6265,13 +6271,19 @@
         "Missing starting stock or stage demand remains unknown, never zero. Unknown demand makes closing stock unknown.",
         "Shortage is recorded at the point it occurs. Later resupply does not erase earlier shortage.",
         "Negative stock is not carried forward; carry forward non-negative physical remainder and preserve shortage separately.",
-        "If stage distance is missing or non-positive, event positions cannot be validated and no within-stage resupply is credited."
+        "If stage distance is missing or non-positive, event positions cannot be validated and no within-stage resupply is credited.",
+        "At the normalizer boundary, map GPX planner day to ordinal, distance_km to planned_distance_km, estimated_moving_hours to estimated_moving_time_hours, and generate a stable stage id when absent. The inventory ledger accepts normalized fields or the documented GPX planner aliases."
       ],
       "limitations": [
         "Linear demand by distance is an accounting approximation, not a physiological intake curve; it does not model terrain-dependent consumption or exact timestamps.",
         "The ledger accounts declared demand and confirmed quantities; it does not prescribe intake rates.",
         "This is reference Python behavior, not production PHP."
-      ]
+      ],
+      "stage_demand_producer": {
+        "water": "HydrationExpert computes stage.inventory_need.water_l from that stage's hydration demand output.",
+        "cho": "NutritionExpert computes stage.inventory_need.cho_g from that stage's nutrition demand output.",
+        "rule": "Do not reuse trip-level demand for every stage. Experts must run against each canonical stage and store that stage-specific result."
+      }
     }
   }
 }
