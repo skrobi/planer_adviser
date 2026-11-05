@@ -357,7 +357,8 @@ def _process_inventory_resource(stages, resource, initial_stock, spec):
             shortage+=consumption-used; total_shortage+=consumption-used
         else:
             stock=None
-        status="shortage" if shortage>0 else ("complete" if opening is not None and demand_ok and distance_ok else "insufficient_data")
+        excluded_events=sum(1 for item in event_rows if not item.get("accepted",False))
+        status="shortage" if shortage>0 else ("insufficient_data" if opening is None or not demand_ok or not distance_ok else ("partial" if excluded_events else "complete"))
         rows.append({"stage_id":stage.get("id"),"resource":resource,"opening_stock":opening,
             "planned_demand":demand if demand_ok else None,"confirmed_resupply":additions,
             "confirmed_losses":losses,"closing_stock":stock,"shortage":shortage,"status":status,
@@ -377,7 +378,7 @@ def run_inventory_ledger(kb,ctx):
     cho,cho_short=_process_inventory_resource(stages,"cho_g",start.get("cho_g") if isinstance(start,dict) else None,spec)
     rows=[{"stage_id":s.get("id"),"ordinal":s.get("ordinal"),"water":water[i],"nutrition":cho[i]} for i,s in enumerate(stages)]
     statuses=[r[k]["status"] for r in rows for k in ("water","nutrition")]
-    overall="insufficient_data" if "insufficient_data" in statuses else ("partial" if "shortage" in statuses else "complete")
+    overall=("insufficient_data" if "insufficient_data" in statuses else ("shortage" if "shortage" in statuses else ("partial" if "partial" in statuses else "complete")))
     set_path(ctx,"plan.trip_accounting.inventory_ledger",rows)
     set_path(ctx,"plan.trip_accounting.inventory_status",overall)
     set_path(ctx,"plan.trip_accounting.inventory_shortage.water_l",water_short)
