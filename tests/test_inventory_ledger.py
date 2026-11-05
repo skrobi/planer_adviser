@@ -27,7 +27,8 @@ class InventoryLedgerTests(unittest.TestCase):
   row=c["plan"]["trip_accounting"]["inventory_ledger"][0]["water"]
   self.assertEqual(row["confirmed_resupply"],1)
   self.assertEqual(row["closing_stock"],1)
-\n def test_stock_carries_forward(self):
+
+ def test_stock_carries_forward(self):
   c=context([{"id":"a","ordinal":1,"planned_distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}},{"id":"b","ordinal":2,"planned_distance_km":50,"inventory_need":{"water_l":1,"cho_g":100}}])
   run_inventory_ledger(KB,c); rows=c["plan"]["trip_accounting"]["inventory_ledger"]
   self.assertEqual(rows[0]["water"]["closing_stock"],1)
