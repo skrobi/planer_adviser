@@ -33,9 +33,9 @@ class Stage5ContractTests(unittest.TestCase):
     def test_poi_presence_never_proves_resupply(self):
         poi = KB["stage5_contracts"]["poi_access"]
         rules = " ".join(poi["eligibility_rules"]).lower()
-        self.assertIn("water volume", rules)
-        self.assertIn("cho quantity", rules)
-        self.assertIn("unknown hours", rules)
+        self.assertIn("water_volume_l", rules)
+        self.assertIn("food_cho_g", rules)
+        self.assertIn("open_status_at_arrival", rules)
         self.assertIn("capacity", rules)
         self.assertIn("detour", rules)
 
