@@ -3938,30 +3938,22 @@
       "trip.total_moving_hours": {
         "type": "number",
         "unit": "h",
-        "required": false,
-        "unknown_allowed": true,
-        "description": "Sum of known stage moving times; partial if any stage time is unknown."
+        "unknown_allowed": true
       },
       "trip.total_stops_hours": {
         "type": "number",
         "unit": "h",
-        "required": false,
-        "unknown_allowed": true,
-        "description": "Sum of declared/estimated stop durations; partial if any stage is unknown."
+        "unknown_allowed": true
       },
       "trip.total_sleep_hours": {
         "type": "number",
         "unit": "h",
-        "required": false,
-        "unknown_allowed": true,
-        "description": "Sum of planned sleep durations; partial if any interval is unknown."
+        "unknown_allowed": true
       },
       "trip.total_elapsed_hours": {
         "type": "number",
         "unit": "h",
-        "required": false,
-        "unknown_allowed": true,
-        "description": "Moving + stops + sleep + explicit contingency, with completeness metadata."
+        "unknown_allowed": true
       },
       "trip.accounting_completeness": {
         "type": "enum",
@@ -3969,9 +3961,7 @@
           "complete",
           "partial",
           "insufficient_data"
-        ],
-        "required": true,
-        "description": "Completeness of trip-level time and inventory accounting."
+        ]
       },
       "logistics.poi_candidates": {
         "type": "array",
@@ -4214,6 +4204,14 @@
       },
       "plan.poi_access.confirmed_food_poi_ids": {
         "type": "array"
+      },
+      "plan.trip_accounting.time_ledger": {
+        "type": "array",
+        "description": "Per-stage separation of moving time, stops, sleep and known elapsed time."
+      },
+      "plan.trip_accounting.known_subtotals": {
+        "type": "object",
+        "description": "Known subtotal per time component, retained even when a total is incomplete."
       }
     },
     "naming_conventions": {
@@ -6166,20 +6164,23 @@
         "trip.total_sleep_hours",
         "trip.total_elapsed_hours",
         "trip.accounting_completeness",
-        "plan.trip_accounting.load_ledger"
+        "plan.trip_accounting.load_ledger",
+        "plan.trip_accounting.time_ledger",
+        "plan.trip_accounting.known_subtotals"
       ],
       "aggregation": {
-        "moving_time": "sum(known stage moving times); unknown if any required stage moving time is absent, with known subtotal retained separately",
-        "stops": "sum declared stop times; unknown/partial when one or more stage stop values are absent",
-        "sleep": "sum planned sleep values; unknown/partial when any relevant overnight interval is not declared",
-        "elapsed": "moving + stops + sleep + explicitly supplied contingency; never substitute missing components with zero without marking partial",
-        "load_ledger": "one row per stage with stage id, ordinal, moving hours, distance, ascent, surface exposure, energy proxy, rest interval before next stage, source and confidence"
+        "moving_time": "Sum canonical stage moving time. Missing stage values remain unknown; report known subtotal separately.",
+        "stops": "Sum declared planned stop hours. Missing stage values remain unknown; report known subtotal separately.",
+        "sleep": "Sum declared planned sleep hours. Missing stage values remain unknown; report known subtotal separately.",
+        "elapsed": "Only calculate a complete elapsed total when every stage has known moving, stops and sleep values. Otherwise return unknown total and retain known subtotals. No missing component is silently set to zero.",
+        "load_ledger": "One row per stage with distance, ascent, surface exposure, moving time, energy proxy and planned sleep/rest interval. Do not collapse these fields into an unvalidated fatigue score."
       },
       "forbidden_outputs": [
         "unvalidated_cumulative_fatigue_score",
         "binary_rider_success_prediction",
         "automatic_change_to_user_requested_day_count"
-      ]
+      ],
+      "status": "reference_time_accounting_implemented"
     },
     "poi_access": {
       "inputs": [
