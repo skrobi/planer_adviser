@@ -117,6 +117,14 @@ class Stage5ContractTests(unittest.TestCase):
         self.assertEqual(ctx["trip"]["accounting_completeness"],"partial")
         self.assertEqual(ctx["plan"]["trip_accounting"]["known_subtotals"]["stops"],2)
 
+
+    def test_explicit_zero_time_is_known_not_missing(self):
+        from adventure_engine_runner import run_trip_accounting
+        ctx={"trip":{"stage_sequence":[{"id":"s1","ordinal":1,"estimated_moving_time_hours":0,"planned_stops_hours":0,"planned_sleep_hours":0}]}}
+        run_trip_accounting(KB,ctx)
+        self.assertEqual(ctx["trip"]["accounting_completeness"],"complete")
+        self.assertEqual(ctx["trip"]["total_elapsed_hours"],0)
+
     def test_short_wizard_policy_is_explicit(self):
         self.assertTrue(WIZARD["meta"]["question_policy"]["ask_only_if_missing"])
 
