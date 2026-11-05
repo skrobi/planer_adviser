@@ -604,3 +604,8 @@ The Python reference runner executes `stage5_contracts.inventory_ledger` for wat
 ### POI access reference assessment
 
 The Python reference runner also filters normalized POI candidates by verification, freshness, open-at-arrival status, route position, detour, confirmed water/CHO quantity and resource capacity. A candidate is not automatically added to inventory: a resupply event must be explicitly selected. Ridemore remains responsible for opening-hours and freshness normalization.
+
+
+### Trip time and stage-load ledger
+
+The reference runner aggregates moving time, planned stops and sleep separately. It emits a complete elapsed total only when all components are known for every stage; otherwise it retains known subtotals and marks completeness as partial or insufficient. The per-stage load ledger exposes distance, ascent, surface, moving time, energy proxy and planned sleep without collapsing them into an unvalidated fatigue score.
