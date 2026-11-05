@@ -599,3 +599,8 @@ See `stage5_contracts` in `adventure_knowledge.json`. This is a declarative targ
 ### Executable multi-stage inventory reference
 
 The Python reference runner executes `stage5_contracts.inventory_ledger` for water and CHO. Each stage supplies `inventory_need.water_l`, `inventory_need.cho_g` and route-positioned `inventory_events`; initial stock is under `trip.inventory_start`. Only verified, available and quantitatively confirmed resupply changes stock. Demand is allocated linearly by route distance as an explicit approximation. See `tests/test_inventory_ledger.py`. This is not production PHP.
+
+
+### POI access reference assessment
+
+The Python reference runner also filters normalized POI candidates by verification, freshness, open-at-arrival status, route position, detour, confirmed water/CHO quantity and resource capacity. A candidate is not automatically added to inventory: a resupply event must be explicitly selected. Ridemore remains responsible for opening-hours and freshness normalization.
