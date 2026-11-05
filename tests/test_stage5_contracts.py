@@ -21,8 +21,8 @@ class Stage5ContractTests(unittest.TestCase):
     def test_trip_aggregation_preserves_unknowns(self):
         trip = KB["stage5_contracts"]["trip_accounting"]
         self.assertIn("trip.accounting_completeness", trip["outputs"])
-        self.assertIn("unknown if any required stage moving time is absent", trip["aggregation"]["moving_time"])
-        self.assertIn("never substitute missing components with zero", trip["aggregation"]["elapsed"])
+        self.assertIn("Missing stage values remain unknown", trip["aggregation"]["moving_time"])
+        self.assertIn("No missing component is silently set to zero", trip["aggregation"]["elapsed"])
 
     def test_stage_load_is_transparent_not_a_fatigue_score(self):
         load = KB["stage5_contracts"]["stage_load_and_recovery"]
