@@ -104,3 +104,8 @@ GitHub Actions run `41991916640` for commit `313b377c5613fd8458838c17f9fb8f99512
 - Inventory ledger and POI access tests passed.
 
 This confirms the Python reference implementation and declarative contracts only. Production PHP execution, Ridemore POI adapter mapping, and end-to-end parity remain outstanding.
+
+
+## 18. Trip time accounting – reference implementation
+
+The Python reference interpreter now aggregates moving time, planned stops and planned sleep independently for the full trip. It calculates elapsed time only when all three components are known for every stage. Missing components remain unknown; known subtotals are retained. The load ledger lists per-stage distance, ascent, surface, moving time, energy proxy and planned sleep without producing a cumulative fatigue score.
