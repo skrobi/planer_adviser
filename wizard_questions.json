@@ -134,14 +134,14 @@
       "order": 1,
       "path": "wizard.mode",
       "type": "single_choice",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Jak chcesz przejść konfigurację?",
         "en": "How do you want to configure the trip?"
       },
       "help": {
-        "pl": "Skrócona wersja pyta tylko o najważniejsze rzeczy i podstawia bezpieczne wartości domyślne (możesz je potem zmienić). Zaawansowana zbiera pełne dane pod modele wody i żywienia.",
-        "en": "Short asks only essentials and applies safe defaults. Advanced collects full inputs for hydration and nutrition models."
+        "pl": "Domyślnie wybieramy krótką konfigurację. Tryb zaawansowany pokazuje dodatkowe pytania organizacyjne — nie wymaga znajomości parametrów fizjologicznych.",
+        "en": "Short setup is selected by default. Advanced mode reveals extra planning questions, not specialist physiology metrics."
       },
       "options": [
         {
@@ -166,7 +166,8 @@
             "en": "All steps: sweat rate, gel CHO grams, POIs, luggage, time limit, GI, etc."
           }
         }
-      ]
+      ],
+      "default": "short"
     },
     {
       "id": "q_profile_type",
@@ -219,7 +220,11 @@
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "help": {
+        "pl": "Wybierz cel wyprawy. Silnik dobierze odpowiednie analizy, ale nie wyłączy pozostałych ekspertów.",
+        "en": "Choose the trip purpose. The engine prioritizes relevant analyses without disabling other experts."
+      }
     },
     {
       "id": "q_experience_level",
@@ -227,7 +232,7 @@
       "order": 20,
       "path": "user.experience_level",
       "type": "single_choice",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Poziom doświadczenia kolarskiego?",
         "en": "Cycling experience level?"
@@ -265,7 +270,14 @@
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "required_when_missing": true,
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.declared.experience_level",
+      "help": {
+        "pl": "Jeśli masz już profil Ridemore, ta odpowiedź zostanie pobrana automatycznie. Pytamy tylko wtedy, gdy brakuje tej informacji.",
+        "en": "If your Ridemore profile already contains this information, it is filled automatically."
+      }
     },
     {
       "id": "q_multi_day_experience",
@@ -273,7 +285,7 @@
       "order": 30,
       "path": "user.multi_day_experience",
       "type": "single_choice",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Czy jechałeś już multi-day (kilka dni z rzędu)?",
         "en": "Have you done multi-day riding before?"
@@ -302,9 +314,10 @@
         }
       ],
       "modes": [
-        "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.declared.multi_day_experience"
     },
     {
       "id": "q_bikepacking_experience",
@@ -312,7 +325,7 @@
       "order": 40,
       "path": "user.bikepacking_experience",
       "type": "boolean",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Czy masz doświadczenie w bikepackingu (bagaż na rowerze, noclegi w trasie)?",
         "en": "Bikepacking experience?"
@@ -335,7 +348,9 @@
       },
       "modes": [
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.declared.bikepacking_experience"
     },
     {
       "id": "q_typical_distance_km",
@@ -344,7 +359,7 @@
       "path": "user.typical_distance_km",
       "type": "number",
       "unit": "km",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Jaki dystans zwykle robisz w jeden dzień jazdy?",
         "en": "Typical single-day distance?"
@@ -356,9 +371,10 @@
         "en": "e.g. 55"
       },
       "modes": [
-        "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.observed.distance_statistics.median_ride_distance_km"
     },
     {
       "id": "q_typical_speed_kmh",
@@ -367,7 +383,7 @@
       "path": "user.typical_speed_kmh",
       "type": "number",
       "unit": "km/h",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Twoja typowa średnia prędkość na podobnej nawierzchni (z postojami lub bez — jak planujesz etap)?",
         "en": "Typical average speed on similar surface?"
@@ -379,13 +395,14 @@
         "en": "e.g. 18"
       },
       "help": {
-        "pl": "Silnik użyje tego do szacunku czasu i km zasięgu wody/jedzenia.",
-        "en": "Used for time and resupply km estimates."
+        "pl": "Jeżeli Ridemore ma historię przejazdów, użyjemy danych z profilu. Nie musisz znać tej wartości — możesz pominąć pytanie.",
+        "en": "Ridemore may use your ride history. You do not need to know this value; you can skip it."
       },
       "modes": [
-        "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.observed.performance.typical_speed_kmh"
     },
     {
       "id": "q_bike_type",
@@ -393,7 +410,7 @@
       "order": 90,
       "path": "user.bike_type",
       "type": "single_choice",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Jaki rower?",
         "en": "Bike type?"
@@ -443,9 +460,10 @@
         }
       ],
       "modes": [
-        "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.equipment.bike_type"
     },
     {
       "id": "q_gpx_upload",
@@ -462,8 +480,8 @@
         "en": "Upload GPX (optional)"
       },
       "help": {
-        "pl": "Jeśli podasz GPX, dystans i przewyższenie można wyliczyć automatycznie.",
-        "en": "Distance and elevation can be derived from GPX."
+        "pl": "Jeśli trasa jest już w planerze, nie musisz przesyłać pliku ponownie.",
+        "en": "If the route is already in the planner, you do not need to upload it again."
       },
       "modes": [
         "advanced"
@@ -480,7 +498,7 @@
       "path": "stage.planned_distance_km",
       "type": "number",
       "unit": "km",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Dystans etapu (km)",
         "en": "Stage distance (km)"
@@ -491,7 +509,14 @@
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "required_when_missing": true,
+      "prefill_from": "route_analysis.route_summary.distance_km",
+      "help": {
+        "pl": "Pytamy tylko wtedy, gdy planer nie przekazał trasy ani jej dystansu.",
+        "en": "Asked only when the planner has not supplied a route or its distance."
+      }
     },
     {
       "id": "q_stage_elevation_m",
@@ -500,7 +525,7 @@
       "path": "stage.elevation_gain_m",
       "type": "number",
       "unit": "m",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Suma podjazdów (m)",
         "en": "Elevation gain (m)"
@@ -511,7 +536,13 @@
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "route_analysis.route_summary.elevation_gain_m",
+      "help": {
+        "pl": "Jeśli nie znasz przewyższenia, pomiń. Nie będziemy traktować braku danych jako zera.",
+        "en": "Skip if unknown. Missing elevation is not treated as zero."
+      }
     },
     {
       "id": "q_dominant_surface",
@@ -519,7 +550,7 @@
       "order": 50,
       "path": "route.dominant_surface",
       "type": "single_choice",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Dominująca nawierzchnia?",
         "en": "Dominant surface?"
@@ -564,7 +595,9 @@
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "route_analysis.route_summary.dominant_surface"
     },
     {
       "id": "q_water_capacity_l",
@@ -573,7 +606,7 @@
       "path": "user.water_carry_capacity_l",
       "type": "number",
       "unit": "L",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Ile litrów wody możesz realnie zabrać na start (bidony + bukłak)?",
         "en": "How many litres can you carry at start?"
@@ -587,7 +620,13 @@
       "modes": [
         "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.equipment.water_carry_capacity_l",
+      "help": {
+        "pl": "Podaj łączną pojemność bidonów i bukłaka, np. 1,5 l. Jeśli nie wiesz, pomiń — pokażemy wynik z odpowiednim zastrzeżeniem.",
+        "en": "Enter the combined capacity of bottles and hydration pack, e.g. 1.5 L. Skip if unsure."
+      }
     },
     {
       "id": "q_planned_water_start_l",
@@ -608,7 +647,6 @@
         "en": "If empty, use carry capacity."
       },
       "modes": [
-        "short",
         "advanced"
       ]
     },
@@ -618,7 +656,7 @@
       "order": 10,
       "path": "user.nutrition_preference",
       "type": "single_choice",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Jak wolisz jeść na rowerze?",
         "en": "On-bike fueling preference?"
@@ -654,9 +692,10 @@
         }
       ],
       "modes": [
-        "short",
         "advanced"
-      ]
+      ],
+      "ask_if_missing": true,
+      "prefill_from": "rider_profile.preferences.nutrition_preference"
     },
     {
       "id": "q_pack_declared",
@@ -664,10 +703,9 @@
       "path": "user.planned_pack_declared",
       "type": "boolean",
       "modes": [
-        "short",
         "advanced"
       ],
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Czy znasz konkretny zapas jedzenia, który zabierzesz?",
         "en": "Do you know the exact food pack you will carry?"
@@ -675,6 +713,10 @@
       "description": {
         "pl": "Nie = silnik dobierze bufor i punkty uzupełnienia. Tak = podasz liczbę produktów; zero jest wtedy świadomą wartością.",
         "en": "No = engine uses a buffer and resupply points. Yes = enter item counts; zero is then an intentional value."
+      },
+      "help": {
+        "pl": "Wypełniaj tylko wtedy, gdy znasz konkretny zapas, który zabierzesz. W przeciwnym razie silnik przygotuje orientacyjny plan żywienia.",
+        "en": "Only fill this in if you know exactly what food you will carry. Otherwise the engine will prepare an indicative fueling plan."
       }
     },
     {
@@ -691,7 +733,6 @@
       "min": 0,
       "max": 40,
       "modes": [
-        "short",
         "advanced"
       ],
       "show_if": {
@@ -717,7 +758,6 @@
       "min": 0,
       "max": 20,
       "modes": [
-        "short",
         "advanced"
       ],
       "show_if": {
@@ -743,7 +783,6 @@
       "min": 0,
       "max": 30,
       "modes": [
-        "short",
         "advanced"
       ],
       "show_if": {
@@ -814,7 +853,11 @@
       },
       "modes": [
         "advanced"
-      ]
+      ],
+      "help": {
+        "pl": "Opcjonalne. Jeśli nie znasz masy bagażu, pomiń. Nie przyjmiemy arbitralnej wartości jako pomiaru.",
+        "en": "Optional. Skip if you do not know the luggage mass; no arbitrary value will be treated as measured."
+      }
     },
     {
       "id": "q_self_sufficiency",
@@ -822,7 +865,7 @@
       "order": 20,
       "path": "user.self_sufficiency_preference",
       "type": "single_choice",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Poziom samowystarczalności?",
         "en": "Self-sufficiency level?"
@@ -851,7 +894,6 @@
         }
       ],
       "modes": [
-        "short",
         "advanced"
       ]
     },
@@ -861,13 +903,12 @@
       "order": 30,
       "path": "equipment.repair_kit_minimum",
       "type": "boolean",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Masz minimalny zestaw naprawczy (dętka/łata, pompka/CO₂, multitool, łańcuch/spinka wg potrzeb)?",
         "en": "Do you carry a minimum repair kit?"
       },
       "modes": [
-        "short",
         "advanced"
       ]
     },
@@ -877,7 +918,7 @@
       "order": 10,
       "path": "event.has_time_limit",
       "type": "boolean",
-      "required": true,
+      "required": false,
       "label": {
         "pl": "Czy etap/event ma limit czasu (cut-off / brevet)?",
         "en": "Is there a time limit / cutoff?"
@@ -977,7 +1018,11 @@
             "en": "Multi-day"
           }
         }
-      ]
+      ],
+      "help": {
+        "pl": "Wybierz jeden dzień albo wyprawę wielodniową. Przy kilku dniach liczba dni podana przez Ciebie jest nadrzędna.",
+        "en": "Choose a single-day or multi-day trip. Your chosen number of days takes priority."
+      }
     },
     {
       "id": "q_days_count",
@@ -999,6 +1044,11 @@
       "show_if": {
         "path": "trip.horizon",
         "eq": "multi_day"
+      },
+      "required_when_shown": true,
+      "help": {
+        "pl": "Podaj liczbę dni. Nie zmienimy jej automatycznie podczas planowania.",
+        "en": "Enter the number of days. The planner will not silently change it."
       }
     },
     {
@@ -1141,8 +1191,8 @@
       "user.luggage_mass_kg": "null → luggage contribution is omitted and input completeness is marked partial; never assume a generic 10 kg as the rider's actual luggage.",
       "user.nutrition_preference": "mixed is a neutral planning preference, not a measured or binding diet choice.",
       "environment.temperature_c": "20°C is a neutral scenario assumption only when no forecast is available; it must not be presented as the event forecast or as a personalized heat assessment.",
-      "logistics.verified_water_pois_km": "No manually entered list is required; the Ridemore POI adapter supplies available records. Empty means no verified POI was passed, not that none exists.",
-      "logistics.verified_food_pois_km": "No manually entered list is required; the Ridemore POI adapter supplies available records. Empty means no verified POI was passed, not that none exists."
+      "logistics.verified_water_pois_km": "No manual list is required; Ridemore POI adapter supplies records. Empty means no verified POI was passed, not that none exists.",
+      "logistics.verified_food_pois_km": "No manual list is required; Ridemore POI adapter supplies records. Empty means no verified POI was passed, not that none exists."
     }
   },
   "ui_logic": {
